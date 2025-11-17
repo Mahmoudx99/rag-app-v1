@@ -1,77 +1,95 @@
 {
   "files": {
+    "/data/watch/Artificial_intelligence.pdf:2149977": {
+      "file_path": "/data/watch/Artificial_intelligence.pdf",
+      "file_name": "Artificial_intelligence.pdf",
+      "file_size": 2149977,
+      "processed_at": "2025-11-17T10:06:53.808477",
+      "status": "deleted",
+      "event_id": "3aa13ec5-6b2e-4549-9cd6-08dba5ba1450",
+      "error_message": null
+    },
     "/data/watch/Computer.pdf:1795755": {
       "file_path": "/data/watch/Computer.pdf",
       "file_name": "Computer.pdf",
       "file_size": 1795755,
-      "processed_at": "2025-11-17T08:35:05.512935",
+      "processed_at": "2025-11-17T10:06:52.087714",
       "status": "deleted",
-      "event_id": "ac037f59-9362-43ce-85f8-99b3b5e10a21",
-      "error_message": null
-    },
-    "/data/watch/Kirchhoff's_circuit_laws.pdf:284218": {
-      "file_path": "/data/watch/Kirchhoff's_circuit_laws.pdf",
-      "file_name": "Kirchhoff's_circuit_laws.pdf",
-      "file_size": 284218,
-      "processed_at": "2025-11-17T08:35:14.164930",
-      "status": "deleted",
-      "event_id": "d5e76fef-e275-4cad-adce-f6c28aaf3f55",
-      "error_message": null
-    },
-    "/data/watch/Resistor.pdf:1015966": {
-      "file_path": "/data/watch/Resistor.pdf",
-      "file_name": "Resistor.pdf",
-      "file_size": 1015966,
-      "processed_at": "2025-11-17T08:35:09.201501",
-      "status": "deleted",
-      "event_id": "1f12b606-735b-46fe-8d4a-91902e9183d9",
-      "error_message": null
-    },
-    "/data/watch/Mesh_analysis.pdf:232717": {
-      "file_path": "/data/watch/Mesh_analysis.pdf",
-      "file_name": "Mesh_analysis.pdf",
-      "file_size": 232717,
-      "processed_at": "2025-11-17T08:35:18.588312",
-      "status": "deleted",
-      "event_id": "c028f942-8158-423d-add9-01192fd79b54",
-      "error_message": null
-    },
-    "/data/watch/1-CS Program Welcome Package Spring21.pdf:759782": {
-      "file_path": "/data/watch/1-CS Program Welcome Package Spring21.pdf",
-      "file_name": "1-CS Program Welcome Package Spring21.pdf",
-      "file_size": 759782,
-      "processed_at": "2025-11-17T08:35:07.279989",
-      "status": "deleted",
-      "event_id": "8b8051f6-47e6-4407-ad93-3fed502add08",
-      "error_message": null
-    },
-    "/data/watch/Lec 1 Environmnet, Ecology  & Ecosystems1.pdf:1974033": {
-      "file_path": "/data/watch/Lec 1 Environmnet, Ecology  & Ecosystems1.pdf",
-      "file_name": "Lec 1 Environmnet, Ecology  & Ecosystems1.pdf",
-      "file_size": 1974033,
-      "processed_at": "2025-11-17T08:35:12.019114",
-      "status": "deleted",
-      "event_id": "287099c2-6f89-4883-9555-48786c75cc62",
+      "event_id": "fc6c4e93-8474-420e-b7f0-d6ed681a8497",
       "error_message": null
     },
     "/data/watch/Consumer_behaviour.pdf:1409608": {
       "file_path": "/data/watch/Consumer_behaviour.pdf",
       "file_name": "Consumer_behaviour.pdf",
       "file_size": 1409608,
-      "processed_at": "2025-11-17T08:35:10.586783",
+      "processed_at": "2025-11-17T10:06:50.171881",
       "status": "deleted",
-      "event_id": "03942ce0-008f-4181-ab4d-6eb9e7596a61",
+      "event_id": "b3c1b772-f78b-4594-a999-d61a5e86a54a",
       "error_message": null
     },
-    "/data/watch/Artificial_intelligence.pdf:2149977": {
-      "file_path": "/data/watch/Artificial_intelligence.pdf",
-      "file_name": "Artificial_intelligence.pdf",
-      "file_size": 2149977,
-      "processed_at": "2025-11-17T08:35:16.046518",
+    "/data/watch/Electronic_circuit.pdf:284997": {
+      "file_path": "/data/watch/Electronic_circuit.pdf",
+      "file_name": "Electronic_circuit.pdf",
+      "file_size": 284997,
+      "processed_at": "2025-11-17T10:06:47.648007",
       "status": "deleted",
-      "event_id": "f31375f1-22c9-47c8-ab77-ba9e43f31aab",
+      "event_id": "2065f8c2-e500-4df5-b777-f9c6602fa467",
+      "error_message": null
+    },
+    "/data/watch/Equivalent_impedance_transforms.pdf:708714": {
+      "file_path": "/data/watch/Equivalent_impedance_transforms.pdf",
+      "file_name": "Equivalent_impedance_transforms.pdf",
+      "file_size": 708714,
+      "processed_at": "2025-11-17T10:06:46.095045",
+      "status": "deleted",
+      "event_id": "4d0c7ad6-85b3-4bf1-8fed-fa2ebca89ddd",
+      "error_message": null
+    },
+    "/data/watch/input.pdf:1795755": {
+      "file_path": "/data/watch/input.pdf",
+      "file_name": "input.pdf",
+      "file_size": 1795755,
+      "processed_at": "2025-11-17T10:06:44.426917",
+      "status": "deleted",
+      "event_id": "d6904633-2ae0-44f1-ba66-244ba34ece84",
+      "error_message": null
+    },
+    "/data/watch/Kirchhoff's_circuit_laws.pdf:284218": {
+      "file_path": "/data/watch/Kirchhoff's_circuit_laws.pdf",
+      "file_name": "Kirchhoff's_circuit_laws.pdf",
+      "file_size": 284218,
+      "processed_at": "2025-11-17T10:06:42.695628",
+      "status": "deleted",
+      "event_id": "952b105a-212d-4233-94e8-c6a96ef56470",
+      "error_message": null
+    },
+    "/data/watch/Lec 1 Environmnet, Ecology  & Ecosystems1.pdf:1974033": {
+      "file_path": "/data/watch/Lec 1 Environmnet, Ecology  & Ecosystems1.pdf",
+      "file_name": "Lec 1 Environmnet, Ecology  & Ecosystems1.pdf",
+      "file_size": 1974033,
+      "processed_at": "2025-11-17T10:06:41.069627",
+      "status": "deleted",
+      "event_id": "eef5dcb1-e452-4cc7-8017-a897432d9824",
+      "error_message": null
+    },
+    "/data/watch/Mesh_analysis.pdf:232717": {
+      "file_path": "/data/watch/Mesh_analysis.pdf",
+      "file_name": "Mesh_analysis.pdf",
+      "file_size": 232717,
+      "processed_at": "2025-11-17T10:06:39.236489",
+      "status": "deleted",
+      "event_id": "44892e8c-81d4-4c23-b974-10eeeb6d37c1",
+      "error_message": null
+    },
+    "/data/watch/Resistor.pdf:1015966": {
+      "file_path": "/data/watch/Resistor.pdf",
+      "file_name": "Resistor.pdf",
+      "file_size": 1015966,
+      "processed_at": "2025-11-17T10:06:37.321523",
+      "status": "deleted",
+      "event_id": "3b1d747a-8614-42ab-8b3c-c0e108a9dff0",
       "error_message": null
     }
   },
-  "last_updated": "2025-11-17T08:35:18.588417"
+  "last_updated": "2025-11-17T10:06:53.808553"
 }

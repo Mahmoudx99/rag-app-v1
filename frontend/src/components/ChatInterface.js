@@ -1,16 +1,23 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { chatAPI } from '../services/api';
 import MessageRenderer from './MessageRenderer';
+import PDFViewer from './PDFViewer';
 import './ChatInterface.css';
 
 function ChatInterface({ selectedChunks, onClearSelection, onError }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [useSearchTool, setUseSearchTool] = useState(false);
+  const [useSearchTool, setUseSearchTool] = useState(true);
   const [conversationId, setConversationId] = useState(null);
   const [expandedContexts, setExpandedContexts] = useState({});
   const messagesEndRef = useRef(null);
+
+  // PDF Viewer state
+  const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState(null);
+  const [selectedPage, setSelectedPage] = useState(1);
+  const [highlightText, setHighlightText] = useState('');
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -110,6 +117,21 @@ function ChatInterface({ selectedChunks, onClearSelection, onError }) {
     return content.substring(0, maxLength) + '...';
   };
 
+  const handleSourceClick = (source) => {
+    if (source.metadata?.document_id) {
+      setSelectedDocument(source.metadata.document_id);
+      setSelectedPage(source.metadata.page_number || 1);
+      setHighlightText(source.content || '');
+      setPdfViewerOpen(true);
+    }
+  };
+
+  const closePdfViewer = () => {
+    setPdfViewerOpen(false);
+    setSelectedDocument(null);
+    setHighlightText('');
+  };
+
   return (
     <div className="chat-interface">
       <div className="chat-header">
@@ -193,20 +215,34 @@ function ChatInterface({ selectedChunks, onClearSelection, onError }) {
                   </div>
                   <ul className="sources-list">
                     {msg.sources.map((source, i) => (
-                      <li key={i}>{formatSource(source)}</li>
+                      <li
+                        key={i}
+                        onClick={() => handleSourceClick(source)}
+                        className="clickable-source"
+                        title="Click to view PDF"
+                      >
+                        {formatSource(source)}
+                        <span className="view-pdf-hint">📄</span>
+                      </li>
                     ))}
                   </ul>
                   {expandedContexts[index] && (
                     <div className="context-viewer">
                       <div className="context-viewer-header">
-                        Retrieved Context (What AI Sees)
+                        Retrieved Context (What AI Sees) - Click to view PDF
                       </div>
                       <div className="context-chunks">
                         {msg.sources.map((source, i) => (
-                          <div key={i} className="context-chunk">
+                          <div
+                            key={i}
+                            className="context-chunk clickable-chunk"
+                            onClick={() => handleSourceClick(source)}
+                            title="Click to view in PDF"
+                          >
                             <div className="context-chunk-header">
                               <span className="chunk-number">Chunk {i + 1}</span>
                               <span className="chunk-source">{formatSource(source)}</span>
+                              <span className="view-pdf-icon">📄 View PDF</span>
                             </div>
                             <div className="context-chunk-content">
                               {source.content || 'No content available'}
@@ -261,6 +297,15 @@ function ChatInterface({ selectedChunks, onClearSelection, onError }) {
           {loading ? 'Sending...' : 'Send'}
         </button>
       </form>
+
+      {/* PDF Viewer Modal */}
+      <PDFViewer
+        isOpen={pdfViewerOpen}
+        onClose={closePdfViewer}
+        documentId={selectedDocument}
+        pageNumber={selectedPage}
+        highlightText={highlightText}
+      />
     </div>
   );
 }

@@ -3,7 +3,7 @@ Embedding generation service
 Adapted from embedding_generator.py
 """
 import logging
-from typing import List
+from typing import List, Iterator, Tuple, Dict, Any, Generator
 from sentence_transformers import SentenceTransformer
 
 logger = logging.getLogger(__name__)
@@ -72,6 +72,61 @@ class EmbeddingService:
             Embedding vector
         """
         return self.generate_embeddings([text])[0]
+
+    def generate_embeddings_streaming(
+        self,
+        chunks_iterator: Iterator[Dict[str, Any]]
+    ) -> Generator[Tuple[List[Dict[str, Any]], List[List[float]]], None, None]:
+        """
+        Generate embeddings for chunks as they arrive from a streaming source.
+
+        Collects chunks into batches and yields (chunks, embeddings) pairs.
+        This allows embeddings to be generated progressively without waiting
+        for all chunks to be created first.
+
+        Args:
+            chunks_iterator: Iterator yielding chunk dictionaries with 'content' key
+
+        Yields:
+            Tuple of (list of chunk dicts, list of embedding vectors) for each batch
+        """
+        batch_chunks = []
+        batch_texts = []
+
+        try:
+            for chunk in chunks_iterator:
+                batch_chunks.append(chunk)
+                batch_texts.append(chunk["content"])
+
+                # When batch is full, generate embeddings and yield
+                if len(batch_chunks) >= self.batch_size:
+                    logger.info(f"Generating embeddings for batch of {len(batch_texts)} chunks")
+                    embeddings = self.model.encode(
+                        batch_texts,
+                        batch_size=self.batch_size,
+                        normalize_embeddings=True,
+                        show_progress_bar=False
+                    )
+                    yield batch_chunks, embeddings.tolist()
+
+                    # Reset batch
+                    batch_chunks = []
+                    batch_texts = []
+
+            # Process any remaining chunks in the final partial batch
+            if batch_chunks:
+                logger.info(f"Generating embeddings for final batch of {len(batch_texts)} chunks")
+                embeddings = self.model.encode(
+                    batch_texts,
+                    batch_size=self.batch_size,
+                    normalize_embeddings=True,
+                    show_progress_bar=False
+                )
+                yield batch_chunks, embeddings.tolist()
+
+        except Exception as e:
+            logger.error(f"Error in streaming embeddings generation: {e}")
+            raise
 
     @property
     def dimension(self) -> int:

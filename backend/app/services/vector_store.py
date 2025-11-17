@@ -165,6 +165,60 @@ class VectorStore:
             logger.error(f"Error deleting by source: {e}")
             raise
 
+    def add_documents_batch(
+        self,
+        chunks: List[Dict[str, Any]],
+        embeddings: List[List[float]],
+        document_id: Optional[int] = None
+    ) -> int:
+        """
+        Add a batch of chunks to the vector store (used for streaming/incremental inserts).
+
+        This method is designed for progressive insertion during streaming processing,
+        allowing chunks to be stored as they are embedded rather than waiting for
+        all chunks to be ready.
+
+        Args:
+            chunks: List of chunk dictionaries with 'id', 'content', and 'metadata'
+            embeddings: List of embedding vectors corresponding to chunks
+            document_id: Optional document ID to add to metadata
+
+        Returns:
+            Number of chunks successfully added
+        """
+        if not chunks or not embeddings:
+            return 0
+
+        if len(chunks) != len(embeddings):
+            raise ValueError(f"Mismatch: {len(chunks)} chunks but {len(embeddings)} embeddings")
+
+        try:
+            ids = [chunk["id"] for chunk in chunks]
+            documents = [chunk["content"] for chunk in chunks]
+            metadatas = []
+
+            for chunk in chunks:
+                metadata = chunk["metadata"].copy()
+                if document_id is not None:
+                    metadata["document_id"] = document_id
+                metadatas.append(metadata)
+
+            logger.info(f"Adding batch of {len(chunks)} chunks to vector store")
+
+            self.collection.add(
+                ids=ids,
+                documents=documents,
+                embeddings=embeddings,
+                metadatas=metadatas
+            )
+
+            logger.info(f"Successfully added batch of {len(chunks)} chunks")
+            return len(chunks)
+
+        except Exception as e:
+            logger.error(f"Error adding batch of chunks: {e}")
+            raise
+
     def get_collection_stats(self) -> Dict[str, Any]:
         """
         Get collection statistics

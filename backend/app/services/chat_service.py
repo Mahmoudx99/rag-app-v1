@@ -163,97 +163,50 @@ class ChatService:
     ) -> Dict[str, Any]:
         """
         Chat with LLM using search as a tool.
-        The LLM can decide to search the knowledge base.
+        ALWAYS searches the knowledge base when this method is called.
+        The search results are injected as context for the LLM response.
         """
-        # Define the search tool
-        search_tool = {
-            "type": "function",
-            "function": {
-                "name": "search_knowledge_base",
-                "description": "Search the knowledge base for relevant information. Use this when you need to find specific information from the documents.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "query": {
-                            "type": "string",
-                            "description": "The search query to find relevant information"
-                        },
-                        "top_k": {
-                            "type": "integer",
-                            "description": "Number of results to return (default: 5)"
-                        }
-                    },
-                    "required": ["query"]
-                }
-            }
-        }
+        # Always perform search when use_search_tool is enabled
+        # This ensures every query benefits from relevant context
+        logger.info(f"Performing automatic search for query: {message[:100]}...")
 
+        search_results = self.search_service.hybrid_search(
+            query=message,
+            n_results=5  # Default to 5 results
+        )
+
+        # Format search results as context
+        search_context = context or []  # Start with any provided context
+        sources = []
+
+        for i in range(len(search_results["ids"])):
+            chunk = {
+                "content": search_results["documents"][i],
+                "metadata": search_results["metadatas"][i]
+            }
+            search_context.append(chunk)
+            sources.append(chunk)
+
+        logger.info(f"Found {len(sources)} relevant chunks for query")
+
+        # Call LLM with the search results as context
         async with httpx.AsyncClient(timeout=60.0) as client:
-            # First call with tools
             payload = {
                 "prompt": message,
-                "tools": [search_tool],
-                "context": context,
+                "context": search_context if search_context else None,
                 "history": history,
                 "system_prompt": system_prompt
             }
 
             response = await client.post(
-                f"{self.llm_service_url}/api/v1/generate/with-tools",
+                f"{self.llm_service_url}/api/v1/generate",
                 json=payload
             )
             response.raise_for_status()
             result = response.json()
 
-            # Check if the LLM wants to use the search tool
-            sources = []
-            if result.get("tool_calls"):
-                for tool_call in result["tool_calls"]:
-                    if tool_call["name"] == "search_knowledge_base":
-                        # Execute the search
-                        search_query = tool_call["arguments"].get("query", message)
-                        top_k = int(tool_call["arguments"].get("top_k", 5))
-
-                        search_results = self.search_service.hybrid_search(
-                            query=search_query,
-                            n_results=top_k
-                        )
-
-                        # Format search results as context
-                        search_context = []
-                        for i in range(len(search_results["ids"])):
-                            chunk = {
-                                "content": search_results["documents"][i],
-                                "metadata": search_results["metadatas"][i]
-                            }
-                            search_context.append(chunk)
-                            sources.append(chunk)
-
-                        # Now call LLM again with the search results
-                        final_payload = {
-                            "prompt": message,
-                            "context": search_context,
-                            "history": history,
-                            "system_prompt": system_prompt
-                        }
-
-                        final_response = await client.post(
-                            f"{self.llm_service_url}/api/v1/generate",
-                            json=final_payload
-                        )
-                        final_response.raise_for_status()
-                        final_result = final_response.json()
-
-                        return {
-                            "response": final_result["response"],
-                            "sources": sources,
-                            "usage": final_result.get("usage", {}),
-                            "model": final_result.get("model", "")
-                        }
-
-            # No tool calls, return the direct response
             return {
-                "response": result.get("response", ""),
+                "response": result["response"],
                 "sources": sources,
                 "usage": result.get("usage", {}),
                 "model": result.get("model", "")

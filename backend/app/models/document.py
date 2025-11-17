@@ -26,6 +26,12 @@ class Document(Base):
     num_chunks = Column(Integer, default=0)
     chunk_ids = Column(JSON, default=list)  # List of ChromaDB chunk IDs
 
+    # Streaming progress tracking
+    chunks_processed = Column(Integer, default=0)  # Chunks embedded and stored so far
+    chunks_estimated = Column(Integer, nullable=True)  # Estimated total chunks (based on pages)
+    processing_started_at = Column(DateTime(timezone=True), nullable=True)
+    last_chunk_at = Column(DateTime(timezone=True), nullable=True)  # Last chunk processed timestamp
+
     # Timestamps
     uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
     processed_at = Column(DateTime(timezone=True), nullable=True)

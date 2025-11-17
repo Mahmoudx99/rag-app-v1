@@ -67,6 +67,11 @@ class DocumentResponse(BaseModel):
     status: str
     uploaded_at: datetime
     processed_at: datetime | None
+    # Streaming progress fields
+    chunks_processed: int = 0
+    chunks_estimated: int | None = None
+    processing_started_at: datetime | None = None
+    last_chunk_at: datetime | None = None
 
     class Config:
         from_attributes = True
@@ -83,6 +88,21 @@ class UploadResponse(BaseModel):
 class DeleteResponse(BaseModel):
     success: bool
     message: str
+
+
+class DocumentProgressResponse(BaseModel):
+    """Response model for document processing progress."""
+    id: int
+    filename: str
+    status: str
+    chunks_processed: int
+    chunks_estimated: int | None
+    num_chunks: int
+    progress_percent: float | None
+    is_searchable: bool  # True if at least some chunks are available
+    processing_started_at: datetime | None
+    last_chunk_at: datetime | None
+    error_message: str | None = None
 
 
 class ProcessFileRequest(BaseModel):
@@ -121,6 +141,13 @@ class WatcherActivityItem(BaseModel):
     document_id: int | None = None
     num_chunks: int = 0
     error_message: str | None = None
+    # Enhanced progress tracking fields
+    chunks_processed: int = 0
+    chunks_estimated: int | None = None
+    progress_percent: float | None = None
+    elapsed_seconds: float = 0.0
+    processing_rate: float | None = None  # chunks per second
+    estimated_remaining_seconds: float | None = None
 
 
 class WatcherActivityResponse(BaseModel):
@@ -238,7 +265,9 @@ async def upload_document(
             original_filename=file.filename,
             file_path=file_path,
             file_size=file_size,
-            status="processing"
+            status="processing",
+            processing_started_at=datetime.utcnow(),
+            chunks_processed=0
         )
         db.add(doc)
         db.commit()
@@ -247,49 +276,57 @@ async def upload_document(
         # Get services
         pdf_proc, embed_svc, vec_store = get_services()
 
-        # Process PDF
-        result = pdf_proc.process_pdf(file_path)
+        # Extract metadata first to estimate chunks
+        metadata = pdf_proc.extract_metadata(file_path)
+        doc.title = metadata.get("title")
+        doc.author = metadata.get("author")
+        doc.num_pages = metadata.get("num_pages")
+        # Estimate ~2-5 chunks per page (conservative estimate)
+        doc.chunks_estimated = (metadata.get("num_pages") or 1) * 3
+        db.commit()
 
-        if not result["success"]:
+        # Use streaming pipeline: chunks -> embeddings -> storage (progressively)
+        chunk_generator = pdf_proc.process_pdf_streaming(file_path)
+        all_chunk_ids = []
+        total_chunks = 0
+
+        try:
+            # Stream chunks through embedding service, which batches them
+            for batch_chunks, batch_embeddings in embed_svc.generate_embeddings_streaming(chunk_generator):
+                # Add document metadata to each chunk
+                for chunk in batch_chunks:
+                    chunk["metadata"]["document_id"] = doc.id
+                    chunk["metadata"]["document_filename"] = doc.filename
+
+                # Store this batch immediately in vector database
+                vec_store.add_documents_batch(batch_chunks, batch_embeddings, doc.id)
+
+                # Track chunk IDs
+                batch_ids = [chunk["id"] for chunk in batch_chunks]
+                all_chunk_ids.extend(batch_ids)
+                total_chunks += len(batch_chunks)
+
+                # Update progress in database
+                doc.chunks_processed = total_chunks
+                doc.last_chunk_at = datetime.utcnow()
+                db.commit()
+
+        except Exception as e:
+            # Processing error - partial success
             doc.status = "failed"
-            doc.error_message = result.get("error", "Unknown error")
+            doc.error_message = f"Error during streaming processing: {str(e)}"
+            doc.num_chunks = total_chunks
+            doc.chunk_ids = all_chunk_ids
             db.commit()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to process PDF: {result.get('error')}"
+                detail=f"Failed to process PDF: {str(e)}"
             )
 
-        # Update document metadata
-        doc.title = result["metadata"].get("title")
-        doc.author = result["metadata"].get("author")
-        doc.num_pages = result["metadata"].get("num_pages")
-
-        # Generate embeddings
-        chunks = result["chunks"]
-        texts = [chunk["content"] for chunk in chunks]
-        embeddings = embed_svc.generate_embeddings(texts)
-
-        # Store in vector database
-        chunk_ids = [chunk["id"] for chunk in chunks]
-        metadatas = [
-            {
-                **chunk["metadata"],
-                "document_id": doc.id,
-                "document_filename": doc.filename
-            }
-            for chunk in chunks
-        ]
-
-        vec_store.add_documents(
-            ids=chunk_ids,
-            documents=texts,
-            embeddings=embeddings,
-            metadatas=metadatas
-        )
-
-        # Update document record
-        doc.num_chunks = len(chunks)
-        doc.chunk_ids = chunk_ids
+        # Update final document record
+        doc.num_chunks = total_chunks
+        doc.chunk_ids = all_chunk_ids
+        doc.chunks_processed = total_chunks
         doc.status = "completed"
         doc.processed_at = datetime.utcnow()
         db.commit()
@@ -298,7 +335,7 @@ async def upload_document(
             success=True,
             document_id=doc.id,
             filename=doc.original_filename,
-            num_chunks=len(chunks),
+            num_chunks=total_chunks,
             message="Document uploaded and processed successfully"
         )
 
@@ -347,6 +384,55 @@ def get_document(
             detail="Document not found"
         )
     return doc
+
+
+@router.get("/{document_id}/progress", response_model=DocumentProgressResponse)
+def get_document_progress(
+    document_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get processing progress for a specific document.
+
+    This endpoint is designed for polling during document processing to show
+    real-time progress as chunks are processed through the streaming pipeline.
+
+    Returns:
+        - chunks_processed: Number of chunks embedded and stored so far
+        - chunks_estimated: Estimated total chunks (based on page count)
+        - progress_percent: Percentage complete (0-100)
+        - is_searchable: True if document has at least some chunks available for search
+    """
+    doc = db.query(Document).filter(Document.id == document_id).first()
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found"
+        )
+
+    # Calculate progress percentage
+    progress_percent = None
+    if doc.chunks_estimated and doc.chunks_estimated > 0:
+        progress_percent = min(100.0, (doc.chunks_processed / doc.chunks_estimated) * 100)
+    elif doc.status == "completed" and doc.num_chunks > 0:
+        progress_percent = 100.0
+
+    # Document is searchable if it has any chunks processed
+    is_searchable = doc.chunks_processed > 0 or doc.num_chunks > 0
+
+    return DocumentProgressResponse(
+        id=doc.id,
+        filename=doc.original_filename,
+        status=doc.status,
+        chunks_processed=doc.chunks_processed or 0,
+        chunks_estimated=doc.chunks_estimated,
+        num_chunks=doc.num_chunks or 0,
+        progress_percent=progress_percent,
+        is_searchable=is_searchable,
+        processing_started_at=doc.processing_started_at,
+        last_chunk_at=doc.last_chunk_at,
+        error_message=doc.error_message
+    )
 
 
 @router.get("/{document_id}/pdf")
@@ -529,7 +615,8 @@ def _process_file_background(
     activity_record: dict
 ):
     """
-    Background task to process PDF file.
+    Background task to process PDF file using streaming pipeline.
+    Chunks are embedded and stored progressively as they are created.
     This runs in a separate thread so it doesn't block the API.
     """
     from ...core.database import SessionLocal
@@ -553,7 +640,9 @@ def _process_file_background(
             original_filename=file_name,
             file_path=unified_file_path,
             file_size=file_size,
-            status="processing"
+            status="processing",
+            processing_started_at=datetime.utcnow(),
+            chunks_processed=0
         )
         db.add(doc)
         db.commit()
@@ -562,49 +651,84 @@ def _process_file_background(
         # Get services
         pdf_proc, embed_svc, vec_store = get_services()
 
-        # Process PDF
-        result = pdf_proc.process_pdf(unified_file_path)
+        # Extract metadata first to estimate chunks
+        metadata = pdf_proc.extract_metadata(unified_file_path)
+        doc.title = metadata.get("title")
+        doc.author = metadata.get("author")
+        doc.num_pages = metadata.get("num_pages")
+        # Estimate ~2-5 chunks per page (conservative estimate)
+        doc.chunks_estimated = (metadata.get("num_pages") or 1) * 3
+        db.commit()
 
-        if not result["success"]:
+        # Update activity record with chunks estimated
+        activity_record["chunks_estimated"] = doc.chunks_estimated
+
+        # Use streaming pipeline: chunks -> embeddings -> storage (progressively)
+        chunk_generator = pdf_proc.process_pdf_streaming(unified_file_path)
+        all_chunk_ids = []
+        total_chunks = 0
+        processing_start_time = datetime.utcnow()
+
+        try:
+            # Stream chunks through embedding service, which batches them
+            for batch_chunks, batch_embeddings in embed_svc.generate_embeddings_streaming(chunk_generator):
+                # Add document metadata to each chunk
+                for chunk in batch_chunks:
+                    chunk["metadata"]["document_id"] = doc.id
+                    chunk["metadata"]["document_filename"] = doc.filename
+
+                # Store this batch immediately in vector database
+                vec_store.add_documents_batch(batch_chunks, batch_embeddings, doc.id)
+
+                # Track chunk IDs
+                batch_ids = [chunk["id"] for chunk in batch_chunks]
+                all_chunk_ids.extend(batch_ids)
+                total_chunks += len(batch_chunks)
+
+                # Update progress in database
+                doc.chunks_processed = total_chunks
+                doc.last_chunk_at = datetime.utcnow()
+                db.commit()
+
+                # Calculate progress metrics for UI
+                elapsed_seconds = (datetime.utcnow() - processing_start_time).total_seconds()
+                processing_rate = total_chunks / elapsed_seconds if elapsed_seconds > 0 else 0
+                progress_percent = None
+                estimated_remaining = None
+
+                if doc.chunks_estimated and doc.chunks_estimated > 0:
+                    progress_percent = min(100.0, (total_chunks / doc.chunks_estimated) * 100)
+                    remaining_chunks = max(0, doc.chunks_estimated - total_chunks)
+                    if processing_rate > 0:
+                        estimated_remaining = remaining_chunks / processing_rate
+
+                # Update activity record for UI visibility with enhanced metrics
+                activity_record["num_chunks"] = total_chunks
+                activity_record["chunks_processed"] = total_chunks
+                activity_record["chunks_estimated"] = doc.chunks_estimated
+                activity_record["progress_percent"] = progress_percent
+                activity_record["elapsed_seconds"] = elapsed_seconds
+                activity_record["processing_rate"] = round(processing_rate, 2)
+                activity_record["estimated_remaining_seconds"] = round(estimated_remaining, 1) if estimated_remaining else None
+
+        except Exception as e:
+            # Processing error - document is partially processed
             doc.status = "failed"
-            doc.error_message = result.get("error", "Unknown error")
+            doc.error_message = f"Error during streaming processing: {str(e)}"
+            doc.num_chunks = total_chunks
+            doc.chunk_ids = all_chunk_ids
             db.commit()
             activity_record["status"] = "failed"
             activity_record["completed_at"] = datetime.utcnow()
-            activity_record["error_message"] = result.get("error", "Unknown error")
+            activity_record["error_message"] = str(e)
+            activity_record["num_chunks"] = total_chunks
+            _save_activity_history()
             return
 
-        # Update document metadata
-        doc.title = result["metadata"].get("title")
-        doc.author = result["metadata"].get("author")
-        doc.num_pages = result["metadata"].get("num_pages")
-
-        # Generate embeddings
-        chunks = result["chunks"]
-        texts = [chunk["content"] for chunk in chunks]
-        embeddings = embed_svc.generate_embeddings(texts)
-
-        # Store in vector database
-        chunk_ids = [chunk["id"] for chunk in chunks]
-        metadatas = [
-            {
-                **chunk["metadata"],
-                "document_id": doc.id,
-                "document_filename": doc.filename
-            }
-            for chunk in chunks
-        ]
-
-        vec_store.add_documents(
-            ids=chunk_ids,
-            documents=texts,
-            embeddings=embeddings,
-            metadatas=metadatas
-        )
-
-        # Update document record
-        doc.num_chunks = len(chunks)
-        doc.chunk_ids = chunk_ids
+        # Update final document record
+        doc.num_chunks = total_chunks
+        doc.chunk_ids = all_chunk_ids
+        doc.chunks_processed = total_chunks
         doc.status = "completed"
         doc.processed_at = datetime.utcnow()
         db.commit()
@@ -613,7 +737,7 @@ def _process_file_background(
         activity_record["status"] = "completed"
         activity_record["completed_at"] = datetime.utcnow()
         activity_record["document_id"] = doc.id
-        activity_record["num_chunks"] = len(chunks)
+        activity_record["num_chunks"] = total_chunks
         _save_activity_history()
 
     except Exception as e:
@@ -724,7 +848,14 @@ async def process_file_from_watcher(
         "completed_at": None,
         "document_id": None,
         "num_chunks": 0,
-        "error_message": None
+        "error_message": None,
+        # Enhanced progress tracking fields
+        "chunks_processed": 0,
+        "chunks_estimated": None,
+        "progress_percent": None,
+        "elapsed_seconds": 0.0,
+        "processing_rate": None,
+        "estimated_remaining_seconds": None
     }
     _watcher_activity.insert(0, activity_record)
     if len(_watcher_activity) > _MAX_ACTIVITY_HISTORY:
@@ -767,9 +898,15 @@ def get_watcher_activity():
     # Check if any files are currently processing
     is_active = any(a["status"] == "processing" for a in _watcher_activity)
 
-    # Convert to response model
-    activities = [
-        WatcherActivityItem(
+    # Convert to response model with enhanced progress fields
+    activities = []
+    for a in _watcher_activity:
+        # Calculate elapsed time for processing items
+        elapsed_seconds = a.get("elapsed_seconds", 0.0)
+        if a["status"] == "processing" and isinstance(a["started_at"], datetime):
+            elapsed_seconds = (datetime.utcnow() - a["started_at"]).total_seconds()
+
+        activities.append(WatcherActivityItem(
             event_id=a["event_id"],
             filename=a["filename"],
             file_size=a["file_size"],
@@ -778,10 +915,15 @@ def get_watcher_activity():
             completed_at=a["completed_at"],
             document_id=a["document_id"],
             num_chunks=a["num_chunks"],
-            error_message=a["error_message"]
-        )
-        for a in _watcher_activity
-    ]
+            error_message=a["error_message"],
+            # Enhanced progress tracking
+            chunks_processed=a.get("chunks_processed", 0),
+            chunks_estimated=a.get("chunks_estimated"),
+            progress_percent=a.get("progress_percent"),
+            elapsed_seconds=elapsed_seconds,
+            processing_rate=a.get("processing_rate"),
+            estimated_remaining_seconds=a.get("estimated_remaining_seconds")
+        ))
 
     return WatcherActivityResponse(
         recent_activities=activities,
@@ -855,7 +997,14 @@ def reprocess_deleted_files(
                         "completed_at": None,
                         "document_id": None,
                         "num_chunks": 0,
-                        "error_message": None
+                        "error_message": None,
+                        # Enhanced progress tracking fields
+                        "chunks_processed": 0,
+                        "chunks_estimated": None,
+                        "progress_percent": None,
+                        "elapsed_seconds": 0.0,
+                        "processing_rate": None,
+                        "estimated_remaining_seconds": None
                     }
                     _watcher_activity.insert(0, new_activity_record)
                     if len(_watcher_activity) > _MAX_ACTIVITY_HISTORY:

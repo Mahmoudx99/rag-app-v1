@@ -5,7 +5,7 @@ Adapted from enhanced_pdf_extractor.py (plain mode only)
 import re
 import hashlib
 import logging
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Iterator, Generator
 from pathlib import Path
 from pdfminer.high_level import extract_text, extract_pages
 from pdfminer.pdfpage import PDFPage
@@ -408,3 +408,140 @@ class PDFProcessor:
                 "success": False,
                 "error": str(e)
             }
+
+    def process_pdf_streaming(self, pdf_path: str) -> Generator[Dict[str, Any], None, Dict[str, Any]]:
+        """
+        Process PDF with streaming: yields chunks progressively as pages are processed.
+
+        This allows embeddings to start processing chunks before the entire PDF is done.
+
+        Args:
+            pdf_path: Path to PDF file
+
+        Yields:
+            Individual chunk dictionaries with id, content, and metadata
+
+        Returns:
+            Final summary dict with metadata and statistics (via generator return)
+        """
+        try:
+            filename = Path(pdf_path).name
+            source_hash = hashlib.md5(filename.encode()).hexdigest()[:8]
+
+            # Extract metadata first
+            metadata = self.extract_metadata(pdf_path)
+            logger.info(f"Starting streaming processing of {filename} ({metadata['num_pages']} pages)")
+
+            global_chunk_index = 0
+            total_text_length = 0
+
+            # Process PDF page by page, yielding chunks as we go
+            for page_num, page_layout in enumerate(extract_pages(pdf_path, laparams=LAParams()), start=1):
+                # Extract text from this page
+                page_text = []
+                for element in page_layout:
+                    if isinstance(element, LTTextContainer):
+                        page_text.append(element.get_text())
+
+                text = ''.join(page_text)
+                processed_text = self._post_process_text(text)
+
+                if not processed_text.strip():
+                    continue
+
+                total_text_length += len(processed_text)
+
+                # Chunk this page's text
+                paragraphs = [p.strip() for p in processed_text.split('\n\n') if p.strip()]
+
+                for para in paragraphs:
+                    para_length = len(para)
+
+                    if para_length <= self.chunk_size:
+                        # Paragraph fits in one chunk
+                        chunk_text = para
+                        content_hash = hashlib.md5(chunk_text.encode()).hexdigest()[:12]
+                        chunk_id = f"chunk_{source_hash}_{global_chunk_index:04d}_{content_hash}"
+
+                        chunk = {
+                            "id": chunk_id,
+                            "content": chunk_text,
+                            "metadata": {
+                                "chunk_index": global_chunk_index,
+                                "page_number": page_num,
+                                "char_count": para_length,
+                                "word_count": len(chunk_text.split()),
+                                "source": filename
+                            }
+                        }
+                        yield chunk
+                        global_chunk_index += 1
+
+                    else:
+                        # Split large paragraph by sentences
+                        sentences = self._split_sentences(para)
+                        current_chunk = []
+                        current_length = 0
+
+                        for sentence in sentences:
+                            sentence_length = len(sentence)
+
+                            if current_length + sentence_length > self.chunk_size and current_chunk:
+                                # Yield current chunk
+                                chunk_text = ' '.join(current_chunk)
+                                content_hash = hashlib.md5(chunk_text.encode()).hexdigest()[:12]
+                                chunk_id = f"chunk_{source_hash}_{global_chunk_index:04d}_{content_hash}"
+
+                                chunk = {
+                                    "id": chunk_id,
+                                    "content": chunk_text,
+                                    "metadata": {
+                                        "chunk_index": global_chunk_index,
+                                        "page_number": page_num,
+                                        "char_count": len(chunk_text),
+                                        "word_count": len(chunk_text.split()),
+                                        "source": filename
+                                    }
+                                }
+                                yield chunk
+                                global_chunk_index += 1
+                                current_chunk = []
+                                current_length = 0
+
+                            current_chunk.append(sentence)
+                            current_length += sentence_length
+
+                        if current_chunk:
+                            chunk_text = ' '.join(current_chunk)
+                            content_hash = hashlib.md5(chunk_text.encode()).hexdigest()[:12]
+                            chunk_id = f"chunk_{source_hash}_{global_chunk_index:04d}_{content_hash}"
+
+                            chunk = {
+                                "id": chunk_id,
+                                "content": chunk_text,
+                                "metadata": {
+                                    "chunk_index": global_chunk_index,
+                                    "page_number": page_num,
+                                    "char_count": len(chunk_text),
+                                    "word_count": len(chunk_text.split()),
+                                    "source": filename
+                                }
+                            }
+                            yield chunk
+                            global_chunk_index += 1
+
+                logger.debug(f"Processed page {page_num}, total chunks so far: {global_chunk_index}")
+
+            logger.info(f"Streaming processing complete: {global_chunk_index} chunks from {metadata['num_pages']} pages")
+
+            # Return final summary (accessible via generator.send() or as StopIteration value)
+            return {
+                "success": True,
+                "metadata": metadata,
+                "num_chunks": global_chunk_index,
+                "total_text_length": total_text_length
+            }
+
+        except Exception as e:
+            logger.error(f"Error in streaming PDF processing: {e}", exc_info=True)
+            raise

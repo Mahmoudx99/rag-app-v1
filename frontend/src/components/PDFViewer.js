@@ -19,24 +19,35 @@ function PDFViewer({ isOpen, onClose, documentId, pageNumber, highlightText }) {
     ? `${process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1'}/documents/${documentId}/pdf`
     : null;
 
+  // Reset state when opening with new document or page
   useEffect(() => {
-    if (pageNumber) {
+    if (isOpen && pageNumber) {
       setCurrentPage(pageNumber);
+      setPageRendered(false); // Reset to trigger re-render and highlighting
+      setHighlights([]); // Clear old highlights
     }
-  }, [pageNumber]);
+  }, [isOpen, pageNumber, documentId]);
+
+  // Also reset when the viewer is closed
+  useEffect(() => {
+    if (!isOpen) {
+      setPageRendered(false);
+      setHighlights([]);
+      setPdfDocument(null);
+    }
+  }, [isOpen]);
 
   const findAndHighlightText = useCallback(async () => {
     if (!pdfDocument || !highlightText || !currentPage || !pageRendered) {
-      setHighlights([]);
-      return;
+      return; // Don't clear highlights, just wait for conditions to be met
     }
 
     try {
-      // Get first 3 words
+      // Get first few words - try more words for better matching
       const words = highlightText.trim().split(/\s+/);
-      const searchText = words.slice(0, 3).join(' ').toLowerCase();
+      const searchText = words.slice(0, Math.min(5, words.length)).join(' ').toLowerCase();
 
-      if (!searchText) {
+      if (!searchText || searchText.length < 3) {
         setHighlights([]);
         return;
       }
@@ -54,27 +65,45 @@ function PDFViewer({ isOpen, onClose, documentId, pageNumber, highlightText }) {
       });
 
       const fullTextLower = fullText.toLowerCase();
-      const index = fullTextLower.indexOf(searchText);
+
+      // Try to find match with decreasing word count for better robustness
+      let index = -1;
+      let actualSearchText = searchText;
+
+      // Try with 5 words, then 4, 3, 2
+      for (let wordCount = Math.min(5, words.length); wordCount >= 2; wordCount--) {
+        actualSearchText = words.slice(0, wordCount).join(' ').toLowerCase();
+        index = fullTextLower.indexOf(actualSearchText);
+        if (index !== -1) break;
+      }
 
       if (index === -1) {
+        console.log('No match found for:', actualSearchText);
         setHighlights([]);
         return;
       }
 
       // Find matching text items
       let charCount = 0;
-      const endIndex = index + searchText.length;
+      const endIndex = index + actualSearchText.length;
       const matchingItems = [];
 
       for (const item of items) {
         const itemStart = charCount;
         const itemEnd = charCount + item.str.length;
 
-        if (itemEnd >= index && itemStart <= endIndex) {
+        // Check if this item overlaps with our search text
+        if (itemEnd > index && itemStart < endIndex) {
           matchingItems.push(item);
         }
 
         charCount += item.str.length + 1; // +1 for space
+      }
+
+      if (matchingItems.length === 0) {
+        console.log('No matching items found in PDF text layer');
+        setHighlights([]);
+        return;
       }
 
       // Create highlight rectangles
@@ -106,12 +135,32 @@ function PDFViewer({ isOpen, onClose, documentId, pageNumber, highlightText }) {
   const onDocumentLoadSuccess = (pdf) => {
     setNumPages(pdf.numPages);
     setPdfDocument(pdf);
-    setPageRendered(false);
+    // Don't reset pageRendered here - let onPageRenderSuccess handle it
   };
 
   const onPageRenderSuccess = () => {
-    setPageRendered(true);
+    // Small delay to ensure PDF.js has finished rendering text layer
+    setTimeout(() => {
+      setPageRendered(true);
+    }, 150);
   };
+
+  // Retry highlighting if it hasn't happened after document loads
+  useEffect(() => {
+    if (pdfDocument && highlightText && currentPage && highlights.length === 0) {
+      // Retry after a delay if no highlights found
+      const retryTimer = setTimeout(() => {
+        setPageRendered(prev => {
+          // Toggle to trigger re-render
+          if (prev) {
+            findAndHighlightText();
+          }
+          return prev;
+        });
+      }, 300);
+      return () => clearTimeout(retryTimer);
+    }
+  }, [pdfDocument, highlightText, currentPage, highlights.length, findAndHighlightText]);
 
   const goToPrevPage = () => {
     setPageRendered(false);

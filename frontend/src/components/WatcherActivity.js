@@ -60,6 +60,21 @@ const WatcherActivity = ({ onNewDocument }) => {
     return date.toLocaleTimeString();
   };
 
+  const formatDuration = (seconds) => {
+    if (!seconds || seconds < 0) return '-';
+    if (seconds < 60) return `${Math.round(seconds)}s`;
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.round(seconds % 60);
+    return `${mins}m ${secs}s`;
+  };
+
+  const formatETA = (seconds) => {
+    if (!seconds || seconds < 0) return 'calculating...';
+    if (seconds < 60) return `~${Math.round(seconds)}s`;
+    const mins = Math.ceil(seconds / 60);
+    return `~${mins}m`;
+  };
+
   const getStatusBadge = (status) => {
     const styles = {
       processing: {
@@ -195,6 +210,9 @@ const WatcherActivity = ({ onNewDocument }) => {
   const hasActivity = activity.recent_activities.length > 0;
   const processingCount = activity.recent_activities.filter(a => a.status === 'processing').length;
   const deletedCount = activity.recent_activities.filter(a => a.status === 'deleted').length;
+  const completedCount = activity.recent_activities.filter(a => a.status === 'completed').length;
+  const totalInBatch = processingCount + completedCount;
+  const processingItems = activity.recent_activities.filter(a => a.status === 'processing');
 
   return (
     <div style={{
@@ -313,6 +331,53 @@ const WatcherActivity = ({ onNewDocument }) => {
             </div>
           </div>
 
+          {/* Batch Progress Summary - shown when processing */}
+          {processingCount > 0 && (
+            <div style={{
+              background: '#fef3c7',
+              padding: '12px 16px',
+              borderBottom: '1px solid #fcd34d'
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '8px'
+              }}>
+                <span style={{
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  color: '#92400e'
+                }}>
+                  Batch Progress
+                </span>
+                <span style={{
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  color: '#92400e'
+                }}>
+                  {completedCount}/{totalInBatch} documents
+                </span>
+              </div>
+              {/* Overall batch progress bar */}
+              <div style={{
+                width: '100%',
+                height: '8px',
+                background: '#fde68a',
+                borderRadius: '4px',
+                overflow: 'hidden'
+              }}>
+                <div style={{
+                  width: `${totalInBatch > 0 ? (completedCount / totalInBatch) * 100 : 0}%`,
+                  height: '100%',
+                  background: '#f59e0b',
+                  borderRadius: '4px',
+                  transition: 'width 0.3s ease'
+                }} />
+              </div>
+            </div>
+          )}
+
           {/* Activity List */}
           <div style={{
             maxHeight: '300px',
@@ -383,6 +448,63 @@ const WatcherActivity = ({ onNewDocument }) => {
                     {getStatusBadge(item.status)}
                   </div>
 
+                  {/* Progress Bar for Processing Items */}
+                  {item.status === 'processing' && (
+                    <div style={{ marginBottom: '8px' }}>
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        fontSize: '11px',
+                        color: '#92400e',
+                        marginBottom: '4px'
+                      }}>
+                        <span style={{ fontWeight: '500' }}>
+                          {item.chunks_processed}/{item.chunks_estimated || '?'} chunks
+                        </span>
+                        <span style={{ fontWeight: '600' }}>
+                          {item.progress_percent ? `${item.progress_percent.toFixed(1)}%` : 'Starting...'}
+                        </span>
+                      </div>
+                      <div style={{
+                        width: '100%',
+                        height: '6px',
+                        background: '#fde68a',
+                        borderRadius: '3px',
+                        overflow: 'hidden'
+                      }}>
+                        <div style={{
+                          width: `${item.progress_percent || 0}%`,
+                          height: '100%',
+                          background: 'linear-gradient(90deg, #f59e0b, #fbbf24)',
+                          borderRadius: '3px',
+                          transition: 'width 0.5s ease',
+                          animation: 'progressPulse 2s infinite'
+                        }} />
+                      </div>
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        fontSize: '10px',
+                        color: '#92400e',
+                        marginTop: '4px'
+                      }}>
+                        <span>
+                          ⏱️ {formatDuration(item.elapsed_seconds)}
+                        </span>
+                        {item.processing_rate && (
+                          <span>
+                            ⚡ {item.processing_rate} chunks/s
+                          </span>
+                        )}
+                        {item.estimated_remaining_seconds && (
+                          <span>
+                            🏁 ETA: {formatETA(item.estimated_remaining_seconds)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   <div style={{
                     display: 'flex',
                     justifyContent: 'space-between',
@@ -391,7 +513,8 @@ const WatcherActivity = ({ onNewDocument }) => {
                   }}>
                     <span>
                       {item.status === 'deleted' ? 'Deleted' :
-                       item.status === 'reprocessed' ? 'Reprocessed' : 'Started'}: {formatTime(item.started_at)}
+                       item.status === 'reprocessed' ? 'Reprocessed' :
+                       item.status === 'processing' ? 'Started' : 'Started'}: {formatTime(item.started_at)}
                     </span>
                     {item.status === 'completed' && (
                       <span>{item.num_chunks} chunks</span>
@@ -506,6 +629,10 @@ const WatcherActivity = ({ onNewDocument }) => {
           @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
+          }
+          @keyframes progressPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.85; }
           }
         `}
       </style>
