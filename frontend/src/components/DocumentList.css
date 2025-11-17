@@ -88,6 +88,29 @@
   gap: 10px;
 }
 
+.view-pdf-button {
+  flex: 1;
+  padding: 10px;
+  background: #0071CE;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s;
+}
+
+.view-pdf-button:hover:not(:disabled) {
+  background: #005AA3;
+  transform: translateY(-1px);
+}
+
+.view-pdf-button:disabled {
+  background: #cbd5e0;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
 .delete-button {
   flex: 1;
   padding: 10px;

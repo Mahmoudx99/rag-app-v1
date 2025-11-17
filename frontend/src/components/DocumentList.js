@@ -1,7 +1,21 @@
-import React from 'react';
+import React, { useState } from 'react';
+import PDFViewer from './PDFViewer';
 import './DocumentList.css';
 
 function DocumentList({ documents, onDelete }) {
+  const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
+  const [selectedDocumentId, setSelectedDocumentId] = useState(null);
+
+  const handleViewPdf = (docId) => {
+    setSelectedDocumentId(docId);
+    setPdfViewerOpen(true);
+  };
+
+  const closePdfViewer = () => {
+    setPdfViewerOpen(false);
+    setSelectedDocumentId(null);
+  };
+
   if (documents.length === 0) {
     return (
       <div className="document-list empty">
@@ -73,6 +87,13 @@ function DocumentList({ documents, onDelete }) {
             </div>
 
             <div className="document-actions">
+              <button
+                className="view-pdf-button"
+                onClick={() => handleViewPdf(doc.id)}
+                disabled={doc.status !== 'completed'}
+              >
+                📄 View PDF
+              </button>
               <button className="delete-button" onClick={() => onDelete(doc.id)}>
                 🗑️ Delete
               </button>
@@ -80,6 +101,15 @@ function DocumentList({ documents, onDelete }) {
           </div>
         ))}
       </div>
+
+      {/* PDF Viewer Modal */}
+      <PDFViewer
+        isOpen={pdfViewerOpen}
+        onClose={closePdfViewer}
+        documentId={selectedDocumentId}
+        pageNumber={1}
+        highlightText=""
+      />
     </div>
   );
 }

@@ -68,6 +68,94 @@
   text-align: center;
 }
 
+.page-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.page-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #4a5568;
+}
+
+.page-input {
+  width: 60px;
+  padding: 6px 8px;
+  border: 2px solid #e2e8f0;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: center;
+  color: #2d3748;
+}
+
+.page-input:focus {
+  outline: none;
+  border-color: #0071CE;
+}
+
+.page-input::-webkit-inner-spin-button,
+.page-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.page-input[type=number] {
+  -moz-appearance: textfield;
+}
+
+.page-total {
+  font-size: 14px;
+  font-weight: 500;
+  color: #4a5568;
+}
+
+.page-slider-wrapper {
+  display: flex;
+  align-items: center;
+  padding-left: 10px;
+}
+
+.page-slider {
+  width: 150px;
+  height: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: #e2e8f0;
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+}
+
+.page-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #0071CE;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 113, 206, 0.3);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.page-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 3px 6px rgba(0, 113, 206, 0.4);
+}
+
+.page-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #0071CE;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 4px rgba(0, 113, 206, 0.3);
+}
+
 .zoom-controls {
   display: flex;
   align-items: center;
@@ -126,14 +214,42 @@
   display: inline-block;
 }
 
+.pdf-container.continuous {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding-bottom: 20px;
+}
+
 .page-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  scroll-margin-top: 20px;
+}
+
+.page-content-wrapper {
   position: relative;
   display: inline-block;
 }
 
+.page-number-label {
+  background: #4a5568;
+  color: white;
+  padding: 4px 12px;
+  border-radius: 4px 4px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-block;
+  margin-bottom: 0;
+}
+
 .pdf-viewer-content .react-pdf__Document {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
 }
 
 .pdf-viewer-content .react-pdf__Page {

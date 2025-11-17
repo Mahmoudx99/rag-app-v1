@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -9,37 +9,84 @@ pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/$
 
 function PDFViewer({ isOpen, onClose, documentId, pageNumber, highlightText }) {
   const [numPages, setNumPages] = useState(null);
-  const [currentPage, setCurrentPage] = useState(pageNumber || 1);
   const [scale, setScale] = useState(1.0);
   const [pdfDocument, setPdfDocument] = useState(null);
-  const [highlights, setHighlights] = useState([]);
-  const [pageRendered, setPageRendered] = useState(false);
+  const [highlights, setHighlights] = useState({});
+  const [renderedPages, setRenderedPages] = useState(new Set());
+  const [currentVisiblePage, setCurrentVisiblePage] = useState(pageNumber || 1);
+  const containerRef = useRef(null);
+  const pageRefs = useRef({});
 
   const pdfUrl = documentId
     ? `${process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1'}/documents/${documentId}/pdf`
     : null;
 
-  // Reset state when opening with new document or page
+  // Scroll to target page when opening
   useEffect(() => {
-    if (isOpen && pageNumber) {
-      setCurrentPage(pageNumber);
-      setPageRendered(false); // Reset to trigger re-render and highlighting
-      setHighlights([]); // Clear old highlights
+    if (isOpen && pageNumber && numPages && pageRefs.current[pageNumber]) {
+      // Wait for pages to render before scrolling
+      const scrollTimer = setTimeout(() => {
+        const targetPage = pageRefs.current[pageNumber];
+        if (targetPage && containerRef.current) {
+          targetPage.scrollIntoView({ behavior: 'auto', block: 'start' });
+          setCurrentVisiblePage(pageNumber);
+        }
+      }, 500);
+      return () => clearTimeout(scrollTimer);
     }
-  }, [isOpen, pageNumber, documentId]);
+  }, [isOpen, pageNumber, numPages]);
+
+  // Reset state when opening with new document
+  useEffect(() => {
+    if (isOpen) {
+      setHighlights({});
+      setRenderedPages(new Set());
+      setCurrentVisiblePage(pageNumber || 1);
+    }
+  }, [isOpen, documentId, pageNumber]);
 
   // Also reset when the viewer is closed
   useEffect(() => {
     if (!isOpen) {
-      setPageRendered(false);
-      setHighlights([]);
+      setHighlights({});
+      setRenderedPages(new Set());
       setPdfDocument(null);
+      setNumPages(null);
+      pageRefs.current = {};
     }
   }, [isOpen]);
 
-  const findAndHighlightText = useCallback(async () => {
-    if (!pdfDocument || !highlightText || !currentPage || !pageRendered) {
-      return; // Don't clear highlights, just wait for conditions to be met
+  // Track current visible page on scroll
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !numPages) return;
+
+    const handleScroll = () => {
+      const containerTop = container.scrollTop;
+      const containerHeight = container.clientHeight;
+      const viewCenter = containerTop + containerHeight / 3; // Use top third for better UX
+
+      for (let i = 1; i <= numPages; i++) {
+        const pageEl = pageRefs.current[i];
+        if (pageEl) {
+          const pageTop = pageEl.offsetTop - container.offsetTop;
+          const pageBottom = pageTop + pageEl.offsetHeight;
+
+          if (pageTop <= viewCenter && pageBottom > viewCenter) {
+            setCurrentVisiblePage(i);
+            break;
+          }
+        }
+      }
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [numPages]);
+
+  const findAndHighlightTextOnPage = useCallback(async (targetPage) => {
+    if (!pdfDocument || !highlightText || !targetPage) {
+      return;
     }
 
     try {
@@ -48,11 +95,10 @@ function PDFViewer({ isOpen, onClose, documentId, pageNumber, highlightText }) {
       const searchText = words.slice(0, Math.min(5, words.length)).join(' ').toLowerCase();
 
       if (!searchText || searchText.length < 3) {
-        setHighlights([]);
         return;
       }
 
-      const page = await pdfDocument.getPage(currentPage);
+      const page = await pdfDocument.getPage(targetPage);
       const textContent = await page.getTextContent();
       const viewport = page.getViewport({ scale });
 
@@ -78,8 +124,6 @@ function PDFViewer({ isOpen, onClose, documentId, pageNumber, highlightText }) {
       }
 
       if (index === -1) {
-        console.log('No match found for:', actualSearchText);
-        setHighlights([]);
         return;
       }
 
@@ -101,8 +145,6 @@ function PDFViewer({ isOpen, onClose, documentId, pageNumber, highlightText }) {
       }
 
       if (matchingItems.length === 0) {
-        console.log('No matching items found in PDF text layer');
-        setHighlights([]);
         return;
       }
 
@@ -121,64 +163,62 @@ function PDFViewer({ isOpen, onClose, documentId, pageNumber, highlightText }) {
         };
       });
 
-      setHighlights(rects);
+      setHighlights(prev => ({ ...prev, [targetPage]: rects }));
     } catch (error) {
-      console.error('Error highlighting:', error);
-      setHighlights([]);
+      console.error('Error highlighting page', targetPage, ':', error);
     }
-  }, [pdfDocument, highlightText, currentPage, scale, pageRendered]);
+  }, [pdfDocument, highlightText, scale]);
 
+  // Highlight target page when document loads
   useEffect(() => {
-    findAndHighlightText();
-  }, [findAndHighlightText]);
+    if (pdfDocument && highlightText && pageNumber && renderedPages.has(pageNumber)) {
+      findAndHighlightTextOnPage(pageNumber);
+    }
+  }, [pdfDocument, highlightText, pageNumber, renderedPages, findAndHighlightTextOnPage]);
 
   const onDocumentLoadSuccess = (pdf) => {
     setNumPages(pdf.numPages);
     setPdfDocument(pdf);
-    // Don't reset pageRendered here - let onPageRenderSuccess handle it
   };
 
-  const onPageRenderSuccess = () => {
-    // Small delay to ensure PDF.js has finished rendering text layer
-    setTimeout(() => {
-      setPageRendered(true);
-    }, 150);
-  };
+  const onPageRenderSuccess = (pageNum) => {
+    setRenderedPages(prev => new Set(prev).add(pageNum));
 
-  // Retry highlighting if it hasn't happened after document loads
-  useEffect(() => {
-    if (pdfDocument && highlightText && currentPage && highlights.length === 0) {
-      // Retry after a delay if no highlights found
-      const retryTimer = setTimeout(() => {
-        setPageRendered(prev => {
-          // Toggle to trigger re-render
-          if (prev) {
-            findAndHighlightText();
-          }
-          return prev;
-        });
-      }, 300);
-      return () => clearTimeout(retryTimer);
+    // Highlight target page after it renders
+    if (pageNum === pageNumber && highlightText) {
+      setTimeout(() => {
+        findAndHighlightTextOnPage(pageNum);
+      }, 150);
     }
-  }, [pdfDocument, highlightText, currentPage, highlights.length, findAndHighlightText]);
-
-  const goToPrevPage = () => {
-    setPageRendered(false);
-    setCurrentPage((prev) => Math.max(prev - 1, 1));
   };
 
-  const goToNextPage = () => {
-    setPageRendered(false);
-    setCurrentPage((prev) => Math.min(prev + 1, numPages));
+  const scrollToPage = (page) => {
+    const pageNum = Math.max(1, Math.min(page, numPages || 1));
+    if (pageRefs.current[pageNum]) {
+      pageRefs.current[pageNum].scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  const handlePageInputChange = (e) => {
+    const value = parseInt(e.target.value, 10);
+    if (!isNaN(value) && value >= 1 && value <= numPages) {
+      scrollToPage(value);
+    }
+  };
+
+  const handleSliderChange = (e) => {
+    scrollToPage(parseInt(e.target.value, 10));
   };
 
   const zoomIn = () => {
-    setPageRendered(false);
+    setHighlights({});
+    setRenderedPages(new Set());
     setScale((prev) => Math.min(prev + 0.2, 3.0));
   };
 
   const zoomOut = () => {
-    setPageRendered(false);
+    setHighlights({});
+    setRenderedPages(new Set());
     setScale((prev) => Math.max(prev - 0.2, 0.5));
   };
 
@@ -189,18 +229,34 @@ function PDFViewer({ isOpen, onClose, documentId, pageNumber, highlightText }) {
       <div className="pdf-viewer-modal" onClick={(e) => e.stopPropagation()}>
         <div className="pdf-viewer-header">
           <div className="pdf-viewer-controls">
-            <button onClick={goToPrevPage} disabled={currentPage <= 1}>
-              Previous
-            </button>
-            <span className="page-info">
-              Page {currentPage} of {numPages || '...'}
-            </span>
-            <button onClick={goToNextPage} disabled={currentPage >= numPages}>
-              Next
-            </button>
+            <div className="page-input-wrapper">
+              <span className="page-label">Page</span>
+              <input
+                type="number"
+                min="1"
+                max={numPages || 1}
+                value={currentVisiblePage}
+                onChange={handlePageInputChange}
+                className="page-input"
+              />
+              <span className="page-total">/ {numPages || '...'}</span>
+            </div>
+
+            {numPages && numPages > 1 && (
+              <div className="page-slider-wrapper">
+                <input
+                  type="range"
+                  min="1"
+                  max={numPages}
+                  value={currentVisiblePage}
+                  onChange={handleSliderChange}
+                  className="page-slider"
+                />
+              </div>
+            )}
 
             <div className="zoom-controls">
-              <button onClick={zoomOut} disabled={scale <= 0.5}>-</button>
+              <button onClick={zoomOut} disabled={scale <= 0.5}>−</button>
               <span className="zoom-level">{Math.round(scale * 100)}%</span>
               <button onClick={zoomIn} disabled={scale >= 3.0}>+</button>
             </div>
@@ -209,46 +265,58 @@ function PDFViewer({ isOpen, onClose, documentId, pageNumber, highlightText }) {
           <button className="close-button" onClick={onClose}>✕</button>
         </div>
 
-        <div className="pdf-viewer-content">
+        <div className="pdf-viewer-content" ref={containerRef}>
           {pdfUrl ? (
-            <div className="pdf-container">
+            <div className="pdf-container continuous">
               <Document
                 file={pdfUrl}
                 onLoadSuccess={onDocumentLoadSuccess}
                 loading={<div className="loading">Loading PDF...</div>}
                 error={<div className="error">Failed to load PDF</div>}
               >
-                <div className="page-wrapper">
-                  <Page
-                    pageNumber={currentPage}
-                    scale={scale}
-                    renderTextLayer={true}
-                    renderAnnotationLayer={true}
-                    onRenderSuccess={onPageRenderSuccess}
-                  />
-
-                  {/* Highlight overlay */}
-                  {highlights.length > 0 && (
-                    <div className="highlight-overlay">
-                      {highlights.map((rect, idx) => (
-                        <div
-                          key={idx}
-                          className="highlight-box"
-                          style={{
-                            position: 'absolute',
-                            left: `${rect.left}px`,
-                            top: `${rect.top}px`,
-                            width: `${rect.width}px`,
-                            height: `${rect.height}px`,
-                            backgroundColor: 'yellow',
-                            opacity: 0.4,
-                            pointerEvents: 'none',
-                          }}
+                {numPages && Array.from({ length: numPages }, (_, index) => {
+                  const pageNum = index + 1;
+                  return (
+                    <div
+                      key={pageNum}
+                      className="page-wrapper"
+                      ref={(el) => (pageRefs.current[pageNum] = el)}
+                    >
+                      <div className="page-number-label">Page {pageNum}</div>
+                      <div className="page-content-wrapper">
+                        <Page
+                          pageNumber={pageNum}
+                          scale={scale}
+                          renderTextLayer={true}
+                          renderAnnotationLayer={true}
+                          onRenderSuccess={() => onPageRenderSuccess(pageNum)}
                         />
-                      ))}
+
+                        {/* Highlight overlay for this page */}
+                        {highlights[pageNum] && highlights[pageNum].length > 0 && (
+                          <div className="highlight-overlay">
+                            {highlights[pageNum].map((rect, idx) => (
+                              <div
+                                key={idx}
+                                className="highlight-box"
+                                style={{
+                                  position: 'absolute',
+                                  left: `${rect.left}px`,
+                                  top: `${rect.top}px`,
+                                  width: `${rect.width}px`,
+                                  height: `${rect.height}px`,
+                                  backgroundColor: 'yellow',
+                                  opacity: 0.4,
+                                  pointerEvents: 'none',
+                                }}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  )}
-                </div>
+                  );
+                })}
               </Document>
             </div>
           ) : (
@@ -258,7 +326,7 @@ function PDFViewer({ isOpen, onClose, documentId, pageNumber, highlightText }) {
 
         {highlightText && (
           <div className="highlight-info">
-            <strong>Chunk found:</strong> {highlightText}
+            <strong>Highlighted chunk on page {pageNumber}:</strong> {highlightText.substring(0, 100)}...
           </div>
         )}
       </div>
