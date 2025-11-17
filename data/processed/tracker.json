@@ -1,95 +1,95 @@
 {
   "files": {
-    "/data/watch/Artificial_intelligence.pdf:2149977": {
-      "file_path": "/data/watch/Artificial_intelligence.pdf",
-      "file_name": "Artificial_intelligence.pdf",
-      "file_size": 2149977,
-      "processed_at": "2025-11-17T10:06:53.808477",
-      "status": "deleted",
-      "event_id": "3aa13ec5-6b2e-4549-9cd6-08dba5ba1450",
-      "error_message": null
-    },
-    "/data/watch/Computer.pdf:1795755": {
-      "file_path": "/data/watch/Computer.pdf",
-      "file_name": "Computer.pdf",
-      "file_size": 1795755,
-      "processed_at": "2025-11-17T10:06:52.087714",
-      "status": "deleted",
-      "event_id": "fc6c4e93-8474-420e-b7f0-d6ed681a8497",
-      "error_message": null
-    },
     "/data/watch/Consumer_behaviour.pdf:1409608": {
       "file_path": "/data/watch/Consumer_behaviour.pdf",
       "file_name": "Consumer_behaviour.pdf",
       "file_size": 1409608,
-      "processed_at": "2025-11-17T10:06:50.171881",
-      "status": "deleted",
-      "event_id": "b3c1b772-f78b-4594-a999-d61a5e86a54a",
-      "error_message": null
-    },
-    "/data/watch/Electronic_circuit.pdf:284997": {
-      "file_path": "/data/watch/Electronic_circuit.pdf",
-      "file_name": "Electronic_circuit.pdf",
-      "file_size": 284997,
-      "processed_at": "2025-11-17T10:06:47.648007",
-      "status": "deleted",
-      "event_id": "2065f8c2-e500-4df5-b777-f9c6602fa467",
-      "error_message": null
-    },
-    "/data/watch/Equivalent_impedance_transforms.pdf:708714": {
-      "file_path": "/data/watch/Equivalent_impedance_transforms.pdf",
-      "file_name": "Equivalent_impedance_transforms.pdf",
-      "file_size": 708714,
-      "processed_at": "2025-11-17T10:06:46.095045",
-      "status": "deleted",
-      "event_id": "4d0c7ad6-85b3-4bf1-8fed-fa2ebca89ddd",
-      "error_message": null
-    },
-    "/data/watch/input.pdf:1795755": {
-      "file_path": "/data/watch/input.pdf",
-      "file_name": "input.pdf",
-      "file_size": 1795755,
-      "processed_at": "2025-11-17T10:06:44.426917",
-      "status": "deleted",
-      "event_id": "d6904633-2ae0-44f1-ba66-244ba34ece84",
+      "processed_at": "2025-11-17T12:35:42.954049",
+      "status": "success",
+      "event_id": "8c3d379e-6ff1-4e06-8052-bd683556863f",
       "error_message": null
     },
     "/data/watch/Kirchhoff's_circuit_laws.pdf:284218": {
       "file_path": "/data/watch/Kirchhoff's_circuit_laws.pdf",
       "file_name": "Kirchhoff's_circuit_laws.pdf",
       "file_size": 284218,
-      "processed_at": "2025-11-17T10:06:42.695628",
-      "status": "deleted",
-      "event_id": "952b105a-212d-4233-94e8-c6a96ef56470",
+      "processed_at": "2025-11-17T12:35:42.985267",
+      "status": "success",
+      "event_id": "fb22797a-296f-4804-9ce4-0d7f907a2e56",
       "error_message": null
     },
-    "/data/watch/Lec 1 Environmnet, Ecology  & Ecosystems1.pdf:1974033": {
-      "file_path": "/data/watch/Lec 1 Environmnet, Ecology  & Ecosystems1.pdf",
-      "file_name": "Lec 1 Environmnet, Ecology  & Ecosystems1.pdf",
-      "file_size": 1974033,
-      "processed_at": "2025-11-17T10:06:41.069627",
-      "status": "deleted",
-      "event_id": "eef5dcb1-e452-4cc7-8017-a897432d9824",
-      "error_message": null
-    },
-    "/data/watch/Mesh_analysis.pdf:232717": {
-      "file_path": "/data/watch/Mesh_analysis.pdf",
-      "file_name": "Mesh_analysis.pdf",
-      "file_size": 232717,
-      "processed_at": "2025-11-17T10:06:39.236489",
-      "status": "deleted",
-      "event_id": "44892e8c-81d4-4c23-b974-10eeeb6d37c1",
+    "/data/watch/Equivalent_impedance_transforms.pdf:708714": {
+      "file_path": "/data/watch/Equivalent_impedance_transforms.pdf",
+      "file_name": "Equivalent_impedance_transforms.pdf",
+      "file_size": 708714,
+      "processed_at": "2025-11-17T12:35:43.048386",
+      "status": "success",
+      "event_id": "640432f7-5473-4609-aba5-1ec618eacb9d",
       "error_message": null
     },
     "/data/watch/Resistor.pdf:1015966": {
       "file_path": "/data/watch/Resistor.pdf",
       "file_name": "Resistor.pdf",
       "file_size": 1015966,
-      "processed_at": "2025-11-17T10:06:37.321523",
-      "status": "deleted",
-      "event_id": "3b1d747a-8614-42ab-8b3c-c0e108a9dff0",
+      "processed_at": "2025-11-17T12:35:43.103869",
+      "status": "success",
+      "event_id": "8b69efa8-c09a-45d4-bed3-0662bc3e1ddc",
+      "error_message": null
+    },
+    "/data/watch/Lec 1 Environmnet, Ecology  & Ecosystems1.pdf:1974033": {
+      "file_path": "/data/watch/Lec 1 Environmnet, Ecology  & Ecosystems1.pdf",
+      "file_name": "Lec 1 Environmnet, Ecology  & Ecosystems1.pdf",
+      "file_size": 1974033,
+      "processed_at": "2025-11-17T12:35:43.145095",
+      "status": "success",
+      "event_id": "a66db754-5f90-4a56-9265-bc296d1dc3a4",
+      "error_message": null
+    },
+    "/data/watch/input.pdf:1795755": {
+      "file_path": "/data/watch/input.pdf",
+      "file_name": "input.pdf",
+      "file_size": 1795755,
+      "processed_at": "2025-11-17T12:35:43.190906",
+      "status": "success",
+      "event_id": "6da4f8d8-0fa1-4d3f-8659-cf0fe9bcde5f",
+      "error_message": null
+    },
+    "/data/watch/Computer.pdf:1795755": {
+      "file_path": "/data/watch/Computer.pdf",
+      "file_name": "Computer.pdf",
+      "file_size": 1795755,
+      "processed_at": "2025-11-17T12:35:43.229234",
+      "status": "success",
+      "event_id": "aa095185-bceb-474f-adf5-81e6a3ca6e2a",
+      "error_message": null
+    },
+    "/data/watch/Mesh_analysis.pdf:232717": {
+      "file_path": "/data/watch/Mesh_analysis.pdf",
+      "file_name": "Mesh_analysis.pdf",
+      "file_size": 232717,
+      "processed_at": "2025-11-17T12:35:43.278806",
+      "status": "success",
+      "event_id": "0e508ba3-60fc-470f-8f07-29bfc92b3532",
+      "error_message": null
+    },
+    "/data/watch/Artificial_intelligence.pdf:2149977": {
+      "file_path": "/data/watch/Artificial_intelligence.pdf",
+      "file_name": "Artificial_intelligence.pdf",
+      "file_size": 2149977,
+      "processed_at": "2025-11-17T12:35:43.318358",
+      "status": "success",
+      "event_id": "9b74d07f-05c0-4391-b7fb-263bcf33744a",
+      "error_message": null
+    },
+    "/data/watch/Electronic_circuit.pdf:284997": {
+      "file_path": "/data/watch/Electronic_circuit.pdf",
+      "file_name": "Electronic_circuit.pdf",
+      "file_size": 284997,
+      "processed_at": "2025-11-17T12:35:43.359922",
+      "status": "success",
+      "event_id": "2b016b20-fcc0-4ef0-be2e-a46178cae43a",
       "error_message": null
     }
   },
-  "last_updated": "2025-11-17T10:06:53.808553"
+  "last_updated": "2025-11-17T12:35:43.360826"
 }

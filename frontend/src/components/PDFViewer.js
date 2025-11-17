@@ -102,11 +102,13 @@ function PDFViewer({ isOpen, onClose, documentId, pageNumber, highlightText }) {
       const textContent = await page.getTextContent();
       const viewport = page.getViewport({ scale });
 
-      // Build text from items
+      // Build text from items with position tracking
       let fullText = '';
       const items = textContent.items;
+      const itemPositions = []; // Track start position of each item in fullText
 
       items.forEach((item) => {
+        itemPositions.push(fullText.length);
         fullText += item.str + ' ';
       });
 
@@ -127,41 +129,56 @@ function PDFViewer({ isOpen, onClose, documentId, pageNumber, highlightText }) {
         return;
       }
 
-      // Find matching text items
-      let charCount = 0;
       const endIndex = index + actualSearchText.length;
-      const matchingItems = [];
 
-      for (const item of items) {
-        const itemStart = charCount;
-        const itemEnd = charCount + item.str.length;
+      // Find matching text items and calculate partial highlights
+      const rects = [];
+
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const itemStart = itemPositions[i];
+        const itemEnd = itemStart + item.str.length;
 
         // Check if this item overlaps with our search text
         if (itemEnd > index && itemStart < endIndex) {
-          matchingItems.push(item);
-        }
+          const tx = item.transform[4];
+          const ty = item.transform[5];
+          const itemHeight = item.height;
+          const itemWidth = item.width;
 
-        charCount += item.str.length + 1; // +1 for space
+          // Calculate partial highlight if text starts or ends within this item
+          let highlightLeft = tx;
+          let highlightWidth = itemWidth;
+
+          if (item.str.length > 0 && itemWidth > 0) {
+            const charWidth = itemWidth / item.str.length;
+
+            // If search text starts within this item
+            if (index > itemStart) {
+              const charsToSkip = index - itemStart;
+              highlightLeft = tx + (charsToSkip * charWidth);
+              highlightWidth = itemWidth - (charsToSkip * charWidth);
+            }
+
+            // If search text ends within this item
+            if (endIndex < itemEnd) {
+              const charsToInclude = endIndex - Math.max(index, itemStart);
+              highlightWidth = charsToInclude * charWidth;
+            }
+          }
+
+          rects.push({
+            left: highlightLeft,
+            top: viewport.height - ty - itemHeight,
+            width: Math.max(highlightWidth, 0),
+            height: itemHeight,
+          });
+        }
       }
 
-      if (matchingItems.length === 0) {
+      if (rects.length === 0) {
         return;
       }
-
-      // Create highlight rectangles
-      const rects = matchingItems.map((item) => {
-        const tx = item.transform[4];
-        const ty = item.transform[5];
-        const itemHeight = item.height;
-        const itemWidth = item.width;
-
-        return {
-          left: tx,
-          top: viewport.height - ty - itemHeight,
-          width: itemWidth,
-          height: itemHeight,
-        };
-      });
 
       setHighlights(prev => ({ ...prev, [targetPage]: rects }));
     } catch (error) {
