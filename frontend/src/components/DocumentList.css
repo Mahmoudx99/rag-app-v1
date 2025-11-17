@@ -1,0 +1,105 @@
+.document-list h3 {
+  margin-bottom: 20px;
+  color: #2d3748;
+}
+
+.document-list.empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: #718096;
+  font-size: 1.1rem;
+}
+
+.documents-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.document-card {
+  background: #f7fafc;
+  border-radius: 8px;
+  padding: 20px;
+  border: 2px solid #e2e8f0;
+  transition: all 0.3s;
+}
+
+.document-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: #0071CE;
+}
+
+.document-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 15px;
+  gap: 10px;
+}
+
+.document-header h4 {
+  color: #2d3748;
+  font-size: 1rem;
+  word-break: break-word;
+  flex: 1;
+}
+
+.status-badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.status-badge.success {
+  background: #c6f6d5;
+  color: #22543d;
+}
+
+.status-badge.processing {
+  background: #feebc8;
+  color: #7c2d12;
+}
+
+.status-badge.error {
+  background: #fed7d7;
+  color: #742a2a;
+}
+
+.document-info {
+  font-size: 0.9rem;
+  color: #4a5568;
+  margin-bottom: 15px;
+}
+
+.document-info p {
+  margin-bottom: 6px;
+}
+
+.document-title {
+  color: #2d3748;
+  font-weight: 500;
+}
+
+.document-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.delete-button {
+  flex: 1;
+  padding: 10px;
+  background: #fc8181;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s;
+}
+
+.delete-button:hover {
+  background: #f56565;
+}

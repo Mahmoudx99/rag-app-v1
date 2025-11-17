@@ -1,0 +1,270 @@
+.advanced-search {
+  position: relative;
+}
+
+.advanced-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 15px 16px;
+  background: #f7fafc;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #4a5568;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  height: 100%;
+}
+
+.advanced-toggle:hover:not(:disabled) {
+  border-color: #0071CE;
+  color: #0071CE;
+}
+
+.advanced-toggle.expanded {
+  background: #0071CE;
+  color: white;
+  border-color: #0071CE;
+}
+
+.advanced-toggle.has-filters {
+  background: #ebf8ff;
+  border-color: #0071CE;
+}
+
+.advanced-toggle.has-filters.expanded {
+  background: #0071CE;
+  color: white;
+}
+
+.advanced-toggle:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.toggle-icon {
+  font-size: 0.8rem;
+}
+
+.filter-badge {
+  background: #48bb78;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+}
+
+.advanced-toggle.expanded .filter-badge {
+  background: white;
+  color: #0071CE;
+}
+
+.advanced-panel {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 100;
+  background: white;
+  border: 2px solid #0071CE;
+  border-radius: 8px;
+  padding: 20px;
+  margin-top: 8px;
+  min-width: 450px;
+  box-shadow: 0 8px 24px rgba(0, 113, 206, 0.2);
+}
+
+.filter-section {
+  margin-bottom: 20px;
+}
+
+.filter-section:last-of-type {
+  margin-bottom: 0;
+}
+
+.filter-section h4 {
+  margin: 0 0 12px 0;
+  font-size: 0.95rem;
+  color: #2d3748;
+  font-weight: 600;
+}
+
+.document-filters {
+  max-height: 150px;
+  overflow-y: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: white;
+  padding: 10px;
+}
+
+.no-documents {
+  color: #718096;
+  font-style: italic;
+  margin: 0;
+}
+
+.document-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.document-checkbox:hover {
+  background: #edf2f7;
+}
+
+.document-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #0071CE;
+}
+
+.doc-name {
+  font-weight: 500;
+  color: #2d3748;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.doc-info {
+  font-size: 0.8rem;
+  color: #718096;
+}
+
+.date-filters {
+  display: flex;
+  gap: 20px;
+}
+
+.date-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.date-input-group label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #4a5568;
+}
+
+.date-input-group input[type="date"] {
+  padding: 10px;
+  border: 2px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.date-input-group input[type="date"]:focus {
+  border-color: #0071CE;
+}
+
+.date-input-group input[type="date"]:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.boolean-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.boolean-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.boolean-input-group label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #4a5568;
+}
+
+.operator-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: white;
+}
+
+.operator-badge.and {
+  background: #0071CE;
+}
+
+.operator-badge.not {
+  background: #e53e3e;
+}
+
+.operator-badge.or {
+  background: #48bb78;
+}
+
+.boolean-input-group input[type="text"] {
+  padding: 10px 12px;
+  border: 2px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.boolean-input-group input[type="text"]:focus {
+  border-color: #0071CE;
+}
+
+.boolean-input-group input[type="text"]:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.boolean-input-group input[type="text"]::placeholder {
+  color: #a0aec0;
+}
+
+.clear-filters-button {
+  margin-top: 15px;
+  padding: 10px 20px;
+  background: #fc8181;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.clear-filters-button:hover:not(:disabled) {
+  background: #f56565;
+  transform: translateY(-1px);
+}
+
+.clear-filters-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .date-filters {
+    flex-direction: column;
+    gap: 12px;
+  }
+}

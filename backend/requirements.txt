@@ -1,0 +1,19 @@
+fastapi
+uvicorn[standard]
+pydantic-settings
+sqlalchemy
+psycopg2-binary
+pdfminer.six
+
+# Pin versions to prevent compatibility issues
+# See: https://github.com/huggingface/transformers/issues/29763
+numpy<2.0
+torch==2.2.2
+torchvision==0.17.2
+torchaudio==2.2.2
+transformers==4.40.1
+sentence-transformers==2.7.0
+
+chromadb-client
+python-multipart
+rank-bm25

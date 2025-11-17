@@ -1,0 +1,181 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: linear-gradient(135deg, #0071CE 0%, #005AA3 100%);
+  min-height: 100vh;
+}
+
+.App {
+  min-height: 100vh;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* Header */
+.app-header {
+  background: rgba(255, 255, 255, 0.98);
+  padding: 20px 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  margin-bottom: 20px;
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 40px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.app-logo {
+  height: 70px;
+  width: auto;
+  object-fit: contain;
+}
+
+.header-text h1 {
+  font-size: 2.2rem;
+  color: #0071CE;
+  margin-bottom: 5px;
+  font-weight: 700;
+}
+
+.header-text p {
+  color: #718096;
+  font-size: 1rem;
+}
+
+.header-stats {
+  display: flex;
+  gap: 30px;
+  align-items: center;
+}
+
+.header-stats .stat {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-stats .stat-icon {
+  font-size: 2.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-stats .stat-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.header-stats .stat-value {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #2d3748;
+  line-height: 1;
+}
+
+.header-stats .stat-label {
+  font-size: 0.75rem;
+  color: #718096;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 4px;
+}
+
+@media (max-width: 1024px) {
+  .header-content {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .header-stats {
+    width: 100%;
+    justify-content: space-around;
+  }
+}
+
+@media (max-width: 768px) {
+  .header-left {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .app-logo {
+    height: 50px;
+  }
+
+  .header-text h1 {
+    font-size: 1.8rem;
+  }
+
+  .header-stats {
+    flex-direction: column;
+    gap: 15px;
+    align-items: flex-start;
+  }
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.tab {
+  flex: 1;
+  padding: 15px 20px;
+  background: linear-gradient(135deg, #0071CE 0%, #005AA3 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.tab:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.tab.active {
+  background: white;
+  color: #0071CE;
+}
+
+.tab.chat-tab.active {
+  color: #805AD5;
+}
+
+/* Tab Content */
+.tab-content {
+  background: white;
+  border-radius: 12px;
+  padding: 30px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin-bottom: 40px;
+  min-height: 400px;
+}

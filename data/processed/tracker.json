@@ -1,0 +1,77 @@
+{
+  "files": {
+    "/data/watch/Computer.pdf:1795755": {
+      "file_path": "/data/watch/Computer.pdf",
+      "file_name": "Computer.pdf",
+      "file_size": 1795755,
+      "processed_at": "2025-11-17T08:35:05.512935",
+      "status": "deleted",
+      "event_id": "ac037f59-9362-43ce-85f8-99b3b5e10a21",
+      "error_message": null
+    },
+    "/data/watch/Kirchhoff's_circuit_laws.pdf:284218": {
+      "file_path": "/data/watch/Kirchhoff's_circuit_laws.pdf",
+      "file_name": "Kirchhoff's_circuit_laws.pdf",
+      "file_size": 284218,
+      "processed_at": "2025-11-17T08:35:14.164930",
+      "status": "deleted",
+      "event_id": "d5e76fef-e275-4cad-adce-f6c28aaf3f55",
+      "error_message": null
+    },
+    "/data/watch/Resistor.pdf:1015966": {
+      "file_path": "/data/watch/Resistor.pdf",
+      "file_name": "Resistor.pdf",
+      "file_size": 1015966,
+      "processed_at": "2025-11-17T08:35:09.201501",
+      "status": "deleted",
+      "event_id": "1f12b606-735b-46fe-8d4a-91902e9183d9",
+      "error_message": null
+    },
+    "/data/watch/Mesh_analysis.pdf:232717": {
+      "file_path": "/data/watch/Mesh_analysis.pdf",
+      "file_name": "Mesh_analysis.pdf",
+      "file_size": 232717,
+      "processed_at": "2025-11-17T08:35:18.588312",
+      "status": "deleted",
+      "event_id": "c028f942-8158-423d-add9-01192fd79b54",
+      "error_message": null
+    },
+    "/data/watch/1-CS Program Welcome Package Spring21.pdf:759782": {
+      "file_path": "/data/watch/1-CS Program Welcome Package Spring21.pdf",
+      "file_name": "1-CS Program Welcome Package Spring21.pdf",
+      "file_size": 759782,
+      "processed_at": "2025-11-17T08:35:07.279989",
+      "status": "deleted",
+      "event_id": "8b8051f6-47e6-4407-ad93-3fed502add08",
+      "error_message": null
+    },
+    "/data/watch/Lec 1 Environmnet, Ecology  & Ecosystems1.pdf:1974033": {
+      "file_path": "/data/watch/Lec 1 Environmnet, Ecology  & Ecosystems1.pdf",
+      "file_name": "Lec 1 Environmnet, Ecology  & Ecosystems1.pdf",
+      "file_size": 1974033,
+      "processed_at": "2025-11-17T08:35:12.019114",
+      "status": "deleted",
+      "event_id": "287099c2-6f89-4883-9555-48786c75cc62",
+      "error_message": null
+    },
+    "/data/watch/Consumer_behaviour.pdf:1409608": {
+      "file_path": "/data/watch/Consumer_behaviour.pdf",
+      "file_name": "Consumer_behaviour.pdf",
+      "file_size": 1409608,
+      "processed_at": "2025-11-17T08:35:10.586783",
+      "status": "deleted",
+      "event_id": "03942ce0-008f-4181-ab4d-6eb9e7596a61",
+      "error_message": null
+    },
+    "/data/watch/Artificial_intelligence.pdf:2149977": {
+      "file_path": "/data/watch/Artificial_intelligence.pdf",
+      "file_name": "Artificial_intelligence.pdf",
+      "file_size": 2149977,
+      "processed_at": "2025-11-17T08:35:16.046518",
+      "status": "deleted",
+      "event_id": "f31375f1-22c9-47c8-ab77-ba9e43f31aab",
+      "error_message": null
+    }
+  },
+  "last_updated": "2025-11-17T08:35:18.588417"
+}

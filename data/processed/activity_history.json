@@ -1,0 +1,181 @@
+{
+  "activities": [
+    {
+      "event_id": "reprocess_08e9f1b6-3085-4d41-9377-801736b0f6d0",
+      "filename": "Computer.pdf",
+      "file_size": 1795755,
+      "status": "completed",
+      "started_at": "2025-11-17T08:35:29.853612",
+      "completed_at": "2025-11-17T08:37:32.079847",
+      "document_id": 60,
+      "num_chunks": 142,
+      "error_message": null
+    },
+    {
+      "event_id": "reprocess_d4a2d91f-6045-4586-a6c1-1a9b3b4535eb",
+      "filename": "1-CS Program Welcome Package Spring21.pdf",
+      "file_size": 759782,
+      "status": "completed",
+      "started_at": "2025-11-17T08:35:29.853579",
+      "completed_at": "2025-11-17T08:37:09.999934",
+      "document_id": 59,
+      "num_chunks": 12,
+      "error_message": null
+    },
+    {
+      "event_id": "reprocess_c3a68f3a-04f9-4b6a-8126-92e121150eb2",
+      "filename": "Resistor.pdf",
+      "file_size": 1015966,
+      "status": "completed",
+      "started_at": "2025-11-17T08:35:29.853539",
+      "completed_at": "2025-11-17T08:37:08.274817",
+      "document_id": 58,
+      "num_chunks": 69,
+      "error_message": null
+    },
+    {
+      "event_id": "reprocess_a788c6da-8958-43b4-9e7d-c5e28e0344bf",
+      "filename": "Consumer_behaviour.pdf",
+      "file_size": 1409608,
+      "status": "completed",
+      "started_at": "2025-11-17T08:35:29.853468",
+      "completed_at": "2025-11-17T08:36:54.222108",
+      "document_id": 57,
+      "num_chunks": 187,
+      "error_message": null
+    },
+    {
+      "event_id": "reprocess_a6a10081-85f9-4f3e-9a05-72ccbdc97ba6",
+      "filename": "Lec 1 Environmnet, Ecology  & Ecosystems1.pdf",
+      "file_size": 1974033,
+      "status": "completed",
+      "started_at": "2025-11-17T08:35:29.853181",
+      "completed_at": "2025-11-17T08:36:25.558528",
+      "document_id": 56,
+      "num_chunks": 25,
+      "error_message": null
+    },
+    {
+      "event_id": "reprocess_ede1912a-9808-4037-9ab6-f6c62baf6a53",
+      "filename": "Kirchhoff's_circuit_laws.pdf",
+      "file_size": 284218,
+      "status": "completed",
+      "started_at": "2025-11-17T08:35:29.853138",
+      "completed_at": "2025-11-17T08:36:23.392503",
+      "document_id": 55,
+      "num_chunks": 11,
+      "error_message": null
+    },
+    {
+      "event_id": "reprocess_8a9a4da5-8b8a-4ccb-85db-f56ea7fddaa4",
+      "filename": "Artificial_intelligence.pdf",
+      "file_size": 2149977,
+      "status": "completed",
+      "started_at": "2025-11-17T08:35:29.853088",
+      "completed_at": "2025-11-17T08:36:20.808642",
+      "document_id": 54,
+      "num_chunks": 333,
+      "error_message": null
+    },
+    {
+      "event_id": "reprocess_93b57684-a764-48aa-b4aa-2f20cd6d3ada",
+      "filename": "Mesh_analysis.pdf",
+      "file_size": 232717,
+      "status": "completed",
+      "started_at": "2025-11-17T08:35:29.852987",
+      "completed_at": "2025-11-17T08:35:32.107152",
+      "document_id": 53,
+      "num_chunks": 8,
+      "error_message": null
+    },
+    {
+      "event_id": "delete_52_1763368518.588581",
+      "filename": "Mesh_analysis.pdf",
+      "file_size": 232717,
+      "status": "reprocessed",
+      "started_at": "2025-11-17T08:35:18.588592",
+      "completed_at": "2025-11-17T08:35:29.852945",
+      "document_id": 52,
+      "num_chunks": 8,
+      "error_message": null
+    },
+    {
+      "event_id": "delete_51_1763368516.046849",
+      "filename": "Artificial_intelligence.pdf",
+      "file_size": 2149977,
+      "status": "reprocessed",
+      "started_at": "2025-11-17T08:35:16.046859",
+      "completed_at": "2025-11-17T08:35:29.853076",
+      "document_id": 51,
+      "num_chunks": 333,
+      "error_message": null
+    },
+    {
+      "event_id": "delete_43_1763368514.165422",
+      "filename": "Kirchhoff's_circuit_laws.pdf",
+      "file_size": 284218,
+      "status": "reprocessed",
+      "started_at": "2025-11-17T08:35:14.165437",
+      "completed_at": "2025-11-17T08:35:29.853129",
+      "document_id": 43,
+      "num_chunks": 11,
+      "error_message": null
+    },
+    {
+      "event_id": "delete_49_1763368512.019337",
+      "filename": "Lec 1 Environmnet, Ecology  & Ecosystems1.pdf",
+      "file_size": 1974033,
+      "status": "reprocessed",
+      "started_at": "2025-11-17T08:35:12.019344",
+      "completed_at": "2025-11-17T08:35:29.853174",
+      "document_id": 49,
+      "num_chunks": 25,
+      "error_message": null
+    },
+    {
+      "event_id": "delete_50_1763368510.587035",
+      "filename": "Consumer_behaviour.pdf",
+      "file_size": 1409608,
+      "status": "reprocessed",
+      "started_at": "2025-11-17T08:35:10.587042",
+      "completed_at": "2025-11-17T08:35:29.853453",
+      "document_id": 50,
+      "num_chunks": 187,
+      "error_message": null
+    },
+    {
+      "event_id": "delete_44_1763368509.201812",
+      "filename": "Resistor.pdf",
+      "file_size": 1015966,
+      "status": "reprocessed",
+      "started_at": "2025-11-17T08:35:09.201819",
+      "completed_at": "2025-11-17T08:35:29.853508",
+      "document_id": 44,
+      "num_chunks": 69,
+      "error_message": null
+    },
+    {
+      "event_id": "delete_48_1763368507.28147",
+      "filename": "1-CS Program Welcome Package Spring21.pdf",
+      "file_size": 759782,
+      "status": "reprocessed",
+      "started_at": "2025-11-17T08:35:07.281494",
+      "completed_at": "2025-11-17T08:35:29.853571",
+      "document_id": 48,
+      "num_chunks": 12,
+      "error_message": null
+    },
+    {
+      "event_id": "delete_41_1763368505.51328",
+      "filename": "Computer.pdf",
+      "file_size": 1795755,
+      "status": "reprocessed",
+      "started_at": "2025-11-17T08:35:05.513291",
+      "completed_at": "2025-11-17T08:35:29.853605",
+      "document_id": 41,
+      "num_chunks": 142,
+      "error_message": null
+    }
+  ],
+  "last_updated": "2025-11-17T08:37:32.081614"
+}

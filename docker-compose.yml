@@ -1,0 +1,151 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: rag_postgres
+    environment:
+      - POSTGRES_USER=raguser
+      - POSTGRES_PASSWORD=ragpassword
+      - POSTGRES_DB=ragdb
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U raguser -d ragdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rag-network
+
+  # ChromaDB Vector Database
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: rag_chromadb
+    volumes:
+      - chromadb-data:/data
+    ports:
+      - "8001:8000"
+    networks:
+      - rag-network
+
+  # LLM Service
+  llm:
+    build:
+      context: ./llm_service
+      dockerfile: Dockerfile
+    container_name: rag_llm
+    environment:
+      - LLM_PROVIDER=gemini
+      - LLM_API_KEY=${LLM_API_KEY:-your_api_key_here}
+      - LLM_MODEL=gemini-2.0-flash
+      - LLM_MAX_TOKENS=4096
+      - LLM_TEMPERATURE=0.7
+    ports:
+      - "8002:8001"
+    networks:
+      - rag-network
+    restart: on-failure
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: rag_backend
+    environment:
+      - POSTGRES_USER=raguser
+      - POSTGRES_PASSWORD=ragpassword
+      - POSTGRES_DB=ragdb
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8000
+      - UPLOAD_DIR=/data/uploads
+      - LLM_SERVICE_URL=http://llm:8001
+    volumes:
+      - ./data/uploads:/data/uploads
+      # Shared with file_watcher for automatic processing
+      - ./data/watch:/data/watch
+      # Shared tracker for deletion synchronization
+      - ./data/processed:/data/processed
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      chromadb:
+        condition: service_started
+      llm:
+        condition: service_started
+    networks:
+      - rag-network
+    restart: on-failure
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: rag_frontend
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000/api/v1
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - rag-network
+
+  # File Watcher Service
+  # Monitors a folder for new PDFs and triggers processing automatically
+  # GCP Migration: Replace with Cloud Storage triggers + Cloud Functions
+  file_watcher:
+    build:
+      context: ./file_watcher_service
+      dockerfile: Dockerfile
+    container_name: rag_file_watcher
+    environment:
+      # Watch folder configuration
+      # GCP: This becomes GCS bucket name
+      - WATCHER_WATCH_FOLDER=/data/watch
+
+      # Backend API endpoint
+      # GCP: This becomes Cloud Run URL or Pub/Sub topic
+      - WATCHER_BACKEND_URL=http://backend:8000
+      - WATCHER_BACKEND_PROCESS_ENDPOINT=/api/v1/documents/process-file
+
+      # File stability settings (ensures upload is complete)
+      # GCP: Not needed with Cloud Storage OBJECT_FINALIZE events
+      - WATCHER_FILE_STABILITY_THRESHOLD=5.0
+      - WATCHER_FILE_STABILITY_CHECK_INTERVAL=2.0
+
+      # Retry configuration
+      - WATCHER_MAX_RETRIES=3
+      - WATCHER_RETRY_DELAY=5.0
+
+      # Process existing files on startup
+      - WATCHER_PROCESS_EXISTING_ON_STARTUP=true
+
+      # Logging
+      - WATCHER_LOG_LEVEL=INFO
+    volumes:
+      # Watch folder - drop PDFs here for automatic processing
+      - ./data/watch:/data/watch
+      # Processed file tracker
+      - ./data/processed:/data/processed
+    depends_on:
+      - backend
+    networks:
+      - rag-network
+    restart: on-failure
+
+networks:
+  rag-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  uploads-data:
+  chromadb-data:
