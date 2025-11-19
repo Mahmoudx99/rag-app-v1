@@ -31,7 +31,8 @@ class Settings(BaseSettings):
     CHROMA_PERSIST_DIR: str = "/data/chromadb"
 
     # File Storage
-    UPLOAD_DIR: str = "/data/uploads"
+    WATCH_DIR: str = "/data/watch"  # Universal document storage location
+    UPLOAD_DIR: str = "/data/uploads"  # Deprecated - keeping for backward compatibility
     MAX_UPLOAD_SIZE: int = 50 * 1024 * 1024  # 50MB
     ALLOWED_EXTENSIONS: set = {".pdf"}
 

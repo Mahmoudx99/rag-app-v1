@@ -247,10 +247,10 @@ async def upload_document(
     # Generate unique filename
     file_id = str(uuid.uuid4())
     filename = f"{file_id}_{file.filename}"
-    file_path = os.path.join(settings.UPLOAD_DIR, filename)
+    file_path = os.path.join(settings.WATCH_DIR, filename)
 
-    # Ensure upload directory exists
-    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+    # Ensure watch directory exists
+    os.makedirs(settings.WATCH_DIR, exist_ok=True)
 
     try:
         # Save file
@@ -539,7 +539,7 @@ def delete_document(
         if doc.chunk_ids:
             vec_store.delete_by_ids(doc.chunk_ids)
 
-        # Delete file from uploads
+        # Delete file from watch directory
         if os.path.exists(doc.file_path):
             os.remove(doc.file_path)
 
@@ -623,22 +623,16 @@ def _process_file_background(
 
     db = SessionLocal()
     try:
-        # Copy file to unified uploads directory with UUID prefix
-        file_id = str(uuid.uuid4())
-        unified_filename = f"{file_id}_{file_name}"
-        unified_file_path = os.path.join(settings.UPLOAD_DIR, unified_filename)
+        # Process file directly from watch directory (no copying needed)
+        # Extract just the filename from the full path
+        import os.path as osp
+        actual_filename = osp.basename(file_path)
 
-        # Ensure upload directory exists
-        os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
-
-        # Copy file to uploads directory
-        shutil.copy2(file_path, unified_file_path)
-
-        # Create database record
+        # Create database record using the file in watch directory
         doc = Document(
-            filename=unified_filename,
+            filename=actual_filename,
             original_filename=file_name,
-            file_path=unified_file_path,
+            file_path=file_path,  # Use the original path in watch directory
             file_size=file_size,
             status="processing",
             processing_started_at=datetime.utcnow(),
@@ -652,7 +646,7 @@ def _process_file_background(
         pdf_proc, embed_svc, vec_store = get_services()
 
         # Extract metadata first to estimate chunks
-        metadata = pdf_proc.extract_metadata(unified_file_path)
+        metadata = pdf_proc.extract_metadata(file_path)
         doc.title = metadata.get("title")
         doc.author = metadata.get("author")
         doc.num_pages = metadata.get("num_pages")
@@ -664,7 +658,7 @@ def _process_file_background(
         activity_record["chunks_estimated"] = doc.chunks_estimated
 
         # Use streaming pipeline: chunks -> embeddings -> storage (progressively)
-        chunk_generator = pdf_proc.process_pdf_streaming(unified_file_path)
+        chunk_generator = pdf_proc.process_pdf_streaming(file_path)
         all_chunk_ids = []
         total_chunks = 0
         processing_start_time = datetime.utcnow()
@@ -741,9 +735,8 @@ def _process_file_background(
         _save_activity_history()
 
     except Exception as e:
-        # Clean up on error
-        if 'unified_file_path' in locals() and os.path.exists(unified_file_path):
-            os.remove(unified_file_path)
+        # Clean up on error - Don't delete the original file from watch directory
+        # as the watcher tracker will handle retry logic
 
         if 'doc' in locals():
             doc.status = "failed"
@@ -768,8 +761,7 @@ async def process_file_from_watcher(
     Process a PDF file triggered by the file watcher service.
 
     This endpoint is called when the watcher detects a new PDF file.
-    The file is copied to the unified uploads directory with UUID prefix
-    (same as UI uploads) to avoid conflicts.
+    Files are processed directly from the watch directory without copying.
 
     GCP Migration:
     - This endpoint would receive events from Pub/Sub (push subscription)

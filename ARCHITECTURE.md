@@ -34,7 +34,10 @@ The RAG Knowledge Base is a microservices-based application designed for semanti
 │  │ • Plain Mode │ • Sentence   │ • BM25       │ • LLM        │   │
 │  │ • Paragraph  │   Transform  │ • Semantic   │   Orchestr.  │   │
 │  │   Chunking   │ • Batch      │ • RRF Fusion │ • Context    │   │
-│  │ • Metadata   │   Embed      │ • Boolean    │   Injection  │   │
+│  │ • Metadata
+   │   Embed
+   |could be saved 
+   |in redis      │ • Boolean    │   Injection  │   │
 │  └──────────────┴──────────────┴──────────────┴──────────────┘   │
 │                                                                   │
 │  API Routes:                                                      │

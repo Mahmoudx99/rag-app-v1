@@ -62,14 +62,15 @@ services:
       - POSTGRES_PORT=5432
       - CHROMA_HOST=chromadb
       - CHROMA_PORT=8000
-      - UPLOAD_DIR=/data/uploads
+      - WATCH_DIR=/data/watch
       - LLM_SERVICE_URL=http://llm:8001
     volumes:
-      - ./data/uploads:/data/uploads
-      # Shared with file_watcher for automatic processing
+      # Universal document storage location
       - ./data/watch:/data/watch
       # Shared tracker for deletion synchronization
       - ./data/processed:/data/processed
+      # Legacy uploads folder (can be removed after migration)
+      - ./data/uploads:/data/uploads
     ports:
       - "8000:8000"
     depends_on:
