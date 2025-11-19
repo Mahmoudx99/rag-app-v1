@@ -1,104 +1,14 @@
 {
   "files": {
-    "/data/watch/Resistor.pdf:1015966": {
-      "file_path": "/data/watch/Resistor.pdf",
-      "file_name": "Resistor.pdf",
-      "file_size": 1015966,
-      "processed_at": "2025-11-19T10:07:03.330390",
-      "status": "success",
-      "event_id": "68ede6fe-f854-430d-aafa-dae769cc9300",
-      "error_message": null
-    },
-    "/data/watch/Mesh_analysis.pdf:232717": {
-      "file_path": "/data/watch/Mesh_analysis.pdf",
-      "file_name": "Mesh_analysis.pdf",
-      "file_size": 232717,
-      "processed_at": "2025-11-19T10:07:03.359895",
-      "status": "success",
-      "event_id": "754e8f51-a392-4636-b4af-6b030f02de03",
-      "error_message": null
-    },
-    "/data/watch/Lec 1 Environmnet, Ecology  & Ecosystems1.pdf:1974033": {
-      "file_path": "/data/watch/Lec 1 Environmnet, Ecology  & Ecosystems1.pdf",
-      "file_name": "Lec 1 Environmnet, Ecology  & Ecosystems1.pdf",
-      "file_size": 1974033,
-      "processed_at": "2025-11-19T10:07:03.404031",
-      "status": "success",
-      "event_id": "9e29726a-d2b5-4fbc-bdac-e901ffb2f886",
-      "error_message": null
-    },
-    "/data/watch/Kirchhoff's_circuit_laws.pdf:284218": {
-      "file_path": "/data/watch/Kirchhoff's_circuit_laws.pdf",
-      "file_name": "Kirchhoff's_circuit_laws.pdf",
-      "file_size": 284218,
-      "processed_at": "2025-11-19T10:07:03.459047",
-      "status": "success",
-      "event_id": "363190e8-95c0-48a1-9feb-2d957634e2b7",
-      "error_message": null
-    },
-    "/data/watch/input.pdf:1795755": {
-      "file_path": "/data/watch/input.pdf",
-      "file_name": "input.pdf",
-      "file_size": 1795755,
-      "processed_at": "2025-11-19T10:07:03.601267",
-      "status": "success",
-      "event_id": "56231aac-40b5-4369-92b7-e1310950fd1f",
-      "error_message": null
-    },
-    "/data/watch/Equivalent_impedance_transforms.pdf:708714": {
-      "file_path": "/data/watch/Equivalent_impedance_transforms.pdf",
-      "file_name": "Equivalent_impedance_transforms.pdf",
-      "file_size": 708714,
-      "processed_at": "2025-11-19T10:07:03.691314",
-      "status": "success",
-      "event_id": "68fe61f9-7457-40eb-b92d-1a258c7544f2",
-      "error_message": null
-    },
-    "/data/watch/Electronic_circuit.pdf:284997": {
-      "file_path": "/data/watch/Electronic_circuit.pdf",
-      "file_name": "Electronic_circuit.pdf",
-      "file_size": 284997,
-      "processed_at": "2025-11-19T10:07:03.880939",
-      "status": "success",
-      "event_id": "100c5a4c-b5df-4828-b992-50c73bda9a64",
-      "error_message": null
-    },
-    "/data/watch/Consumer_behaviour.pdf:1409608": {
-      "file_path": "/data/watch/Consumer_behaviour.pdf",
-      "file_name": "Consumer_behaviour.pdf",
-      "file_size": 1409608,
-      "processed_at": "2025-11-19T10:07:04.147316",
-      "status": "success",
-      "event_id": "b0ca811d-c16b-43c9-9a8f-35d910d2ea4f",
-      "error_message": null
-    },
-    "/data/watch/Computer.pdf:1795755": {
-      "file_path": "/data/watch/Computer.pdf",
-      "file_name": "Computer.pdf",
-      "file_size": 1795755,
-      "processed_at": "2025-11-19T10:07:04.444517",
-      "status": "success",
-      "event_id": "d1879f16-e1c7-4008-8761-1855a07e927f",
-      "error_message": null
-    },
-    "/data/watch/Artificial_intelligence.pdf:2149977": {
-      "file_path": "/data/watch/Artificial_intelligence.pdf",
-      "file_name": "Artificial_intelligence.pdf",
-      "file_size": 2149977,
-      "processed_at": "2025-11-19T10:07:04.721614",
-      "status": "success",
-      "event_id": "eadd59f2-3fc4-4013-b1f3-0cb8adaa0218",
-      "error_message": null
-    },
-    "/data/watch/1-CS Program Welcome Package Spring21.pdf:759782": {
-      "file_path": "/data/watch/1-CS Program Welcome Package Spring21.pdf",
-      "file_name": "1-CS Program Welcome Package Spring21.pdf",
-      "file_size": 759782,
-      "processed_at": "2025-11-19T10:07:05.149690",
-      "status": "success",
-      "event_id": "227be164-d71e-41a7-a5c5-aedd3daca14f",
+    "/data/watch/0e0eb535-07da-46bb-ad99-f6a232417c69_cover_letter_Mahmoud_Hassan_.pdf:58904": {
+      "file_path": "/data/watch/0e0eb535-07da-46bb-ad99-f6a232417c69_cover_letter_Mahmoud_Hassan_.pdf",
+      "file_name": "0e0eb535-07da-46bb-ad99-f6a232417c69_cover_letter_Mahmoud_Hassan_.pdf",
+      "file_size": 58904,
+      "processed_at": "2025-11-19T13:37:26.509502",
+      "status": "deleted",
+      "event_id": "7bda7c2e-aa35-4b9c-b9da-96fd6da4ed34",
       "error_message": null
     }
   },
-  "last_updated": "2025-11-19T10:07:05.149846"
+  "last_updated": "2025-11-19T13:37:26.509583"
 }

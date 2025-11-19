@@ -79,9 +79,9 @@ class DocumentResponse(BaseModel):
 
 class UploadResponse(BaseModel):
     success: bool
-    document_id: int
+    document_id: int | None = None  # Assigned by watcher when processing starts
     filename: str
-    num_chunks: int
+    num_chunks: int = 0  # Will be updated after processing
     message: str
 
 
@@ -218,18 +218,23 @@ def _save_activity_history():
 _load_activity_history()
 
 
-@router.post("/upload", response_model=UploadResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/upload", response_model=UploadResponse, status_code=status.HTTP_202_ACCEPTED)
 async def upload_document(
     file: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):
     """
-    Upload and process a PDF document
+    Upload a PDF document to the watch folder.
 
-    - Saves the file
-    - Extracts text and chunks
-    - Generates embeddings
-    - Stores in vector database
+    The file watcher service will automatically detect and process it.
+    This approach:
+    - Prevents timeout issues with large files
+    - Uses a single processing pipeline (watch folder)
+    - Returns immediately to the user
+    - Processing happens asynchronously in the background
+
+    To check processing status, use:
+    - GET /api/v1/documents/watcher/activity
     """
     # Validate file
     if not file.filename.endswith('.pdf'):
@@ -244,7 +249,7 @@ async def upload_document(
             detail=f"File too large. Maximum size is {settings.MAX_UPLOAD_SIZE / 1024 / 1024}MB"
         )
 
-    # Generate unique filename
+    # Generate unique filename to avoid conflicts
     file_id = str(uuid.uuid4())
     filename = f"{file_id}_{file.filename}"
     file_path = os.path.join(settings.WATCH_DIR, filename)
@@ -253,106 +258,28 @@ async def upload_document(
     os.makedirs(settings.WATCH_DIR, exist_ok=True)
 
     try:
-        # Save file
+        # Save file to watch directory
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
         file_size = os.path.getsize(file_path)
 
-        # Create database record
-        doc = Document(
-            filename=filename,
-            original_filename=file.filename,
-            file_path=file_path,
-            file_size=file_size,
-            status="processing",
-            processing_started_at=datetime.utcnow(),
-            chunks_processed=0
-        )
-        db.add(doc)
-        db.commit()
-        db.refresh(doc)
-
-        # Get services
-        pdf_proc, embed_svc, vec_store = get_services()
-
-        # Extract metadata first to estimate chunks
-        metadata = pdf_proc.extract_metadata(file_path)
-        doc.title = metadata.get("title")
-        doc.author = metadata.get("author")
-        doc.num_pages = metadata.get("num_pages")
-        # Estimate ~2-5 chunks per page (conservative estimate)
-        doc.chunks_estimated = (metadata.get("num_pages") or 1) * 3
-        db.commit()
-
-        # Use streaming pipeline: chunks -> embeddings -> storage (progressively)
-        chunk_generator = pdf_proc.process_pdf_streaming(file_path)
-        all_chunk_ids = []
-        total_chunks = 0
-
-        try:
-            # Stream chunks through embedding service, which batches them
-            for batch_chunks, batch_embeddings in embed_svc.generate_embeddings_streaming(chunk_generator):
-                # Add document metadata to each chunk
-                for chunk in batch_chunks:
-                    chunk["metadata"]["document_id"] = doc.id
-                    chunk["metadata"]["document_filename"] = doc.filename
-
-                # Store this batch immediately in vector database
-                vec_store.add_documents_batch(batch_chunks, batch_embeddings, doc.id)
-
-                # Track chunk IDs
-                batch_ids = [chunk["id"] for chunk in batch_chunks]
-                all_chunk_ids.extend(batch_ids)
-                total_chunks += len(batch_chunks)
-
-                # Update progress in database
-                doc.chunks_processed = total_chunks
-                doc.last_chunk_at = datetime.utcnow()
-                db.commit()
-
-        except Exception as e:
-            # Processing error - partial success
-            doc.status = "failed"
-            doc.error_message = f"Error during streaming processing: {str(e)}"
-            doc.num_chunks = total_chunks
-            doc.chunk_ids = all_chunk_ids
-            db.commit()
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to process PDF: {str(e)}"
-            )
-
-        # Update final document record
-        doc.num_chunks = total_chunks
-        doc.chunk_ids = all_chunk_ids
-        doc.chunks_processed = total_chunks
-        doc.status = "completed"
-        doc.processed_at = datetime.utcnow()
-        db.commit()
-
         return UploadResponse(
             success=True,
-            document_id=doc.id,
-            filename=doc.original_filename,
-            num_chunks=total_chunks,
-            message="Document uploaded and processed successfully"
+            document_id=None,  # Will be assigned by watcher when processing starts
+            filename=file.filename,
+            num_chunks=0,  # Not yet processed
+            message=f"File uploaded successfully. Processing will begin shortly. Check watcher activity for status."
         )
 
-    except HTTPException:
-        raise
     except Exception as e:
         # Clean up on error
         if os.path.exists(file_path):
             os.remove(file_path)
 
-        if 'doc' in locals():
-            db.delete(doc)
-            db.commit()
-
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error processing document: {str(e)}"
+            detail=f"Error uploading file: {str(e)}"
         )
 
 

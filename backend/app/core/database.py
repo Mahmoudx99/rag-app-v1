@@ -9,13 +9,21 @@ from .config import get_settings
 
 settings = get_settings()
 
-# Create engine
-engine = create_engine(
-    settings.DATABASE_URL,
-    pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20
-)
+# Create engine with appropriate settings based on database type
+if settings.DATABASE_URL.startswith("sqlite"):
+    # SQLite-specific settings
+    engine = create_engine(
+        settings.DATABASE_URL,
+        connect_args={"check_same_thread": False}  # Needed for FastAPI
+    )
+else:
+    # PostgreSQL/Cloud SQL settings
+    engine = create_engine(
+        settings.DATABASE_URL,
+        pool_pre_ping=True,
+        pool_size=10,
+        max_overflow=20
+    )
 
 # Create session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

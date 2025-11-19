@@ -1,24 +1,4 @@
 services:
-  # PostgreSQL Database
-  postgres:
-    image: postgres:15-alpine
-    container_name: rag_postgres
-    environment:
-      - POSTGRES_USER=raguser
-      - POSTGRES_PASSWORD=ragpassword
-      - POSTGRES_DB=ragdb
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U raguser -d ragdb"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - rag-network
-
   # ChromaDB Vector Database
   chromadb:
     image: chromadb/chroma:latest
@@ -55,11 +35,7 @@ services:
       dockerfile: Dockerfile
     container_name: rag_backend
     environment:
-      - POSTGRES_USER=raguser
-      - POSTGRES_PASSWORD=ragpassword
-      - POSTGRES_DB=ragdb
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
+      - DATABASE_URL=sqlite:////data/rag_app.db
       - CHROMA_HOST=chromadb
       - CHROMA_PORT=8000
       - WATCH_DIR=/data/watch
@@ -69,13 +45,11 @@ services:
       - ./data/watch:/data/watch
       # Shared tracker for deletion synchronization
       - ./data/processed:/data/processed
-      # Legacy uploads folder (can be removed after migration)
-      - ./data/uploads:/data/uploads
+      # Mount parent data directory for SQLite database
+      - ./data:/data
     ports:
       - "8000:8000"
     depends_on:
-      postgres:
-        condition: service_healthy
       chromadb:
         condition: service_started
       llm:
@@ -147,6 +121,4 @@ networks:
     driver: bridge
 
 volumes:
-  postgres-data:
-  uploads-data:
   chromadb-data:
