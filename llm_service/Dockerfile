@@ -1,20 +1,40 @@
-FROM python:3.11-slim
+# ============================================================================
+# Multi-Stage Build for LLM Service
+# Lightweight service for Gemini API integration
+# ============================================================================
 
-WORKDIR /app
+# ----------------------------------------------------------------------------
+# Stage 1: Builder - Install dependencies
+# ----------------------------------------------------------------------------
+FROM python:3.11-slim AS builder
 
-# Install system dependencies
+WORKDIR /build
+
+# Install build dependencies (minimal for this service)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements
+# Copy and install requirements
 COPY requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# ----------------------------------------------------------------------------
+# Stage 2: Runtime - Minimal runtime image
+# ----------------------------------------------------------------------------
+FROM python:3.11-slim AS runtime
+
+WORKDIR /app
+
+# Copy installed packages from builder
+COPY --from=builder /install /usr/local
 
 # Copy application code
 COPY app/ /app/app/
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
 
 # Expose port
 EXPOSE 8001
