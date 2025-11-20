@@ -1,0 +1,39 @@
+steps:
+  # Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'build',
+      '-t',
+      'me-central2-docker.pkg.dev/anb-gpt-prj/cloud-run-source-deploy/rag-frontend',
+      '--build-arg',
+      'REACT_APP_API_URL=https://rag-backend-687800931209.me-central2.run.app/api/v1',
+      '.'
+    ]
+
+  # Push to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'push',
+      'me-central2-docker.pkg.dev/anb-gpt-prj/cloud-run-source-deploy/rag-frontend'
+    ]
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args: [
+      'run',
+      'deploy',
+      'rag-frontend',
+      '--image=me-central2-docker.pkg.dev/anb-gpt-prj/cloud-run-source-deploy/rag-frontend:latest',
+      '--region=me-central2',
+      '--platform=managed',
+      '--memory=512Mi',
+      '--cpu=1',
+      '--min-instances=0',
+      '--max-instances=5',
+      '--port=80',
+      '--allow-unauthenticated'
+    ]
+
+images:
+  - 'me-central2-docker.pkg.dev/anb-gpt-prj/cloud-run-source-deploy/rag-frontend'

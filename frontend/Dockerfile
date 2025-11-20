@@ -3,6 +3,10 @@ FROM node:18-alpine AS build
 
 WORKDIR /app
 
+# Build argument for API URL
+ARG REACT_APP_API_URL=http://localhost:8000/api/v1
+ENV REACT_APP_API_URL=$REACT_APP_API_URL
+
 # Copy package files
 COPY package.json package-lock.json* ./
 
@@ -13,7 +17,7 @@ RUN npm install
 COPY public/ ./public/
 COPY src/ ./src/
 
-# Build the application
+# Build the application with the API URL baked in
 RUN npm run build
 
 # Production stage
