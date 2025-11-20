@@ -64,7 +64,7 @@ COPY --from=model-downloader /root/.cache /root/.cache
 COPY app/ /app/app/
 
 # Create data directories
-RUN mkdir -p /data/watch /data/chromadb
+RUN mkdir -p /data/watch /data/processed
 
 # Set environment variables
 # Offline mode prevents runtime downloads and checks

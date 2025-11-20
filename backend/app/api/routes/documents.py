@@ -16,7 +16,7 @@ from pydantic import BaseModel
 
 from ...core.config import get_settings
 from ...core.database import get_db
-from ...models.document import Document
+from ...models.document import Document, Chunk
 from ...services.pdf_processor import PDFProcessor
 from ...services.embedding_service import EmbeddingService
 from ...services.vector_store import VectorStore
@@ -519,6 +519,9 @@ def delete_document(
         if doc.chunk_ids:
             vec_store.delete_by_ids(doc.chunk_ids)
 
+        # Delete chunks from database
+        db.query(Chunk).filter(Chunk.document_id == document_id).delete()
+
         # Delete file from watch directory
         if os.path.exists(doc.file_path):
             os.remove(doc.file_path)
@@ -653,6 +656,18 @@ def _process_file_background(
 
                 # Store this batch immediately in vector database
                 vec_store.add_documents_batch(batch_chunks, batch_embeddings, doc.id)
+
+                # Save chunks to database for retrieval
+                for i, chunk in enumerate(batch_chunks):
+                    db_chunk = Chunk(
+                        chunk_id=chunk["id"],
+                        document_id=doc.id,
+                        content=chunk["content"],
+                        metadata=chunk["metadata"],
+                        page_number=chunk["metadata"].get("page_number"),
+                        chunk_index=chunk["metadata"].get("chunk_index")
+                    )
+                    db.add(db_chunk)
 
                 # Track chunk IDs
                 batch_ids = [chunk["id"] for chunk in batch_chunks]

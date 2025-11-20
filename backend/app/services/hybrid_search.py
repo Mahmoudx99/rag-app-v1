@@ -6,6 +6,9 @@ from typing import List, Dict, Any, Optional
 from rank_bm25 import BM25Okapi
 import re
 
+from ..core.database import SessionLocal
+from ..models.document import Chunk
+
 logger = logging.getLogger(__name__)
 
 
@@ -50,53 +53,24 @@ class HybridSearchService:
         """
         Build BM25 index from documents in the vector store.
 
+        Note: BM25 indexing is currently disabled for Vertex AI as it doesn't
+        support retrieving all documents. Use semantic search instead.
+
         Args:
             where: Optional metadata filter (e.g., {"document_id": 1})
 
         Returns:
             Number of documents indexed
         """
-        try:
-            logger.info("Building BM25 index from vector store")
-
-            # Get all documents from ChromaDB
-            if where:
-                results = self.vector_store.collection.get(
-                    where=where,
-                    include=["documents", "metadatas"]
-                )
-            else:
-                results = self.vector_store.collection.get(
-                    include=["documents", "metadatas"]
-                )
-
-            if not results["ids"]:
-                logger.warning("No documents found for BM25 indexing")
-                self.bm25_index = None
-                self.corpus_ids = []
-                self.corpus_documents = []
-                self.corpus_metadatas = []
-                self._tokenized_corpus = []
-                return 0
-
-            self.corpus_ids = results["ids"]
-            self.corpus_documents = results["documents"]
-            self.corpus_metadatas = results["metadatas"]
-
-            # Tokenize all documents
-            self._tokenized_corpus = [
-                self._tokenize(doc) for doc in self.corpus_documents
-            ]
-
-            # Build BM25 index
-            self.bm25_index = BM25Okapi(self._tokenized_corpus)
-
-            logger.info(f"BM25 index built with {len(self.corpus_ids)} documents")
-            return len(self.corpus_ids)
-
-        except Exception as e:
-            logger.error(f"Error building BM25 index: {e}")
-            raise
+        # BM25 requires getting all documents, which Vertex AI doesn't support
+        # For now, skip BM25 and rely on semantic search only
+        logger.warning("BM25 indexing not supported with Vertex AI - using semantic search only")
+        self.bm25_index = None
+        self.corpus_ids = []
+        self.corpus_documents = []
+        self.corpus_metadatas = []
+        self._tokenized_corpus = []
+        return 0
 
     def keyword_search(
         self,
@@ -190,10 +164,38 @@ class HybridSearchService:
             # Convert distances to similarity scores (1 - distance for cosine)
             scores = [1 - d for d in results["distances"]]
 
+            # Retrieve chunk content from database
+            chunk_ids = results["ids"]
+            documents = []
+            metadatas = []
+
+            if chunk_ids:
+                db = SessionLocal()
+                try:
+                    # Get chunks from database by their IDs
+                    db_chunks = db.query(Chunk).filter(Chunk.chunk_id.in_(chunk_ids)).all()
+
+                    # Create a map for quick lookup
+                    chunk_map = {c.chunk_id: c for c in db_chunks}
+
+                    # Maintain order from search results
+                    for chunk_id in chunk_ids:
+                        if chunk_id in chunk_map:
+                            chunk = chunk_map[chunk_id]
+                            documents.append(chunk.content)
+                            metadatas.append(chunk.metadata or {})
+                        else:
+                            # Chunk not found in DB - use placeholder
+                            documents.append("")
+                            metadatas.append({})
+                            logger.warning(f"Chunk {chunk_id} not found in database")
+                finally:
+                    db.close()
+
             return {
-                "ids": results["ids"],
-                "documents": results["documents"],
-                "metadatas": results["metadatas"],
+                "ids": chunk_ids,
+                "documents": documents,
+                "metadatas": metadatas,
                 "scores": scores
             }
 

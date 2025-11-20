@@ -32,9 +32,11 @@ def get_services():
 
     if vector_store is None:
         vector_store = VectorStore(
-            host=settings.CHROMA_HOST,
-            port=settings.CHROMA_PORT,
-            collection_name=settings.CHROMA_COLLECTION
+            project_id=settings.GCP_PROJECT_ID,
+            region=settings.GCP_REGION,
+            index_endpoint_id=settings.VERTEX_AI_INDEX_ENDPOINT_ID,
+            deployed_index_id=settings.VERTEX_AI_DEPLOYED_INDEX_ID,
+            index_id=settings.VERTEX_AI_INDEX_ID
         )
 
     if hybrid_search_service is None:
