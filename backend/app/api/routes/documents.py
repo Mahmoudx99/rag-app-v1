@@ -4,10 +4,12 @@ Documents API routes - Upload, list, and delete documents
 import os
 import uuid
 import shutil
+import base64
+import json
 from datetime import datetime
 from pathlib import Path
-from typing import List
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status, BackgroundTasks
+from typing import List, Any
+from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status, BackgroundTasks, Request
 from fastapi.responses import JSONResponse, FileResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -132,6 +134,19 @@ class ProcessFileResponse(BaseModel):
     event_id: str
 
 
+class PubSubMessage(BaseModel):
+    """Pub/Sub push message format."""
+    data: str  # Base64 encoded
+    messageId: str
+    attributes: dict = {}
+
+
+class PubSubPushRequest(BaseModel):
+    """Request format for Pub/Sub push endpoint."""
+    message: PubSubMessage
+    subscription: str
+
+
 class WatcherActivityItem(BaseModel):
     """Represents a single watcher activity event."""
     event_id: str
@@ -223,17 +238,17 @@ _load_activity_history()
 @router.post("/upload", response_model=UploadResponse, status_code=status.HTTP_202_ACCEPTED)
 async def upload_document(
     file: UploadFile = File(...),
+    background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db)
 ):
     """
-    Upload a PDF document to the watch folder.
+    Upload a PDF document and trigger processing.
 
-    The file watcher service will automatically detect and process it.
-    This approach:
-    - Prevents timeout issues with large files
-    - Uses a single processing pipeline (watch folder)
-    - Returns immediately to the user
-    - Processing happens asynchronously in the background
+    This endpoint:
+    - Saves the file to storage
+    - Triggers background processing immediately
+    - Returns quickly to the user
+    - Processing happens asynchronously
 
     To check processing status, use:
     - GET /api/v1/documents/watcher/activity
@@ -260,18 +275,54 @@ async def upload_document(
     os.makedirs(settings.WATCH_DIR, exist_ok=True)
 
     try:
-        # Save file to watch directory
+        # Save file to storage
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
         file_size = os.path.getsize(file_path)
 
+        # Generate event ID for tracking
+        event_id = f"upload_{file_id}"
+
+        # Track activity for UI
+        activity_record = {
+            "event_id": event_id,
+            "filename": file.filename,
+            "file_size": file_size,
+            "status": "processing",
+            "started_at": datetime.utcnow(),
+            "completed_at": None,
+            "document_id": None,
+            "num_chunks": 0,
+            "error_message": None,
+            "chunks_processed": 0,
+            "chunks_estimated": None,
+            "progress_percent": None,
+            "elapsed_seconds": 0.0,
+            "processing_rate": None,
+            "estimated_remaining_seconds": None
+        }
+        _watcher_activity.insert(0, activity_record)
+        if len(_watcher_activity) > _MAX_ACTIVITY_HISTORY:
+            _watcher_activity.pop()
+        _save_activity_history()
+
+        # Schedule processing in background
+        background_tasks.add_task(
+            _process_file_background,
+            event_id,
+            file.filename,
+            file_path,
+            file_size,
+            activity_record
+        )
+
         return UploadResponse(
             success=True,
-            document_id=None,  # Will be assigned by watcher when processing starts
+            document_id=None,  # Will be assigned during processing
             filename=file.filename,
             num_chunks=0,  # Not yet processed
-            message=f"File uploaded successfully. Processing will begin shortly. Check watcher activity for status."
+            message=f"File uploaded successfully. Processing started. Check activity for status."
         )
 
     except Exception as e:
@@ -802,6 +853,126 @@ async def process_file_from_watcher(
         message="File queued for processing",
         event_id=request.event_id
     )
+
+
+@router.post("/pubsub", status_code=status.HTTP_200_OK)
+async def handle_pubsub_notification(
+    request: PubSubPushRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """
+    Handle Pub/Sub push notifications from Cloud Storage.
+
+    This endpoint receives notifications when files are uploaded to the
+    GCS bucket. It decodes the message and triggers document processing.
+    """
+    try:
+        # Decode the base64 Pub/Sub message data
+        message_data = base64.b64decode(request.message.data).decode('utf-8')
+        gcs_event = json.loads(message_data)
+
+        # Extract file information from GCS event
+        bucket_name = gcs_event.get('bucket')
+        object_name = gcs_event.get('name', '')  # e.g., "watch/file.pdf"
+        file_size = int(gcs_event.get('size', 0))
+
+        # Only process files in the watch folder
+        if not object_name.startswith('watch/'):
+            return {"status": "ignored", "reason": "Not in watch folder"}
+
+        # Only process PDF files
+        if not object_name.lower().endswith('.pdf'):
+            return {"status": "ignored", "reason": "Not a PDF file"}
+
+        # Extract just the filename
+        file_name = os.path.basename(object_name)
+
+        # Build the local file path (GCS is mounted at /data)
+        file_path = f"/data/{object_name}"
+
+        # Check if file exists (GCS mount)
+        if not os.path.exists(file_path):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"File not found at mount path: {file_path}"
+            )
+
+        # Get actual file size from filesystem
+        actual_size = os.path.getsize(file_path)
+
+        # Check if already processed
+        existing = db.query(Document).filter(
+            Document.original_filename == file_name,
+            Document.file_size == actual_size
+        ).first()
+
+        if existing:
+            return {
+                "status": "already_processed",
+                "document_id": existing.id,
+                "filename": file_name
+            }
+
+        # Validate file size
+        if actual_size > settings.MAX_UPLOAD_SIZE:
+            return {
+                "status": "rejected",
+                "reason": f"File too large. Maximum size is {settings.MAX_UPLOAD_SIZE / 1024 / 1024}MB"
+            }
+
+        # Generate event ID from Pub/Sub message ID
+        event_id = request.message.messageId
+
+        # Track activity for UI
+        activity_record = {
+            "event_id": event_id,
+            "filename": file_name,
+            "file_size": actual_size,
+            "status": "processing",
+            "started_at": datetime.utcnow(),
+            "completed_at": None,
+            "document_id": None,
+            "num_chunks": 0,
+            "error_message": None,
+            "chunks_processed": 0,
+            "chunks_estimated": None,
+            "progress_percent": None,
+            "elapsed_seconds": 0.0,
+            "processing_rate": None,
+            "estimated_remaining_seconds": None
+        }
+        _watcher_activity.insert(0, activity_record)
+        if len(_watcher_activity) > _MAX_ACTIVITY_HISTORY:
+            _watcher_activity.pop()
+        _save_activity_history()
+
+        # Schedule processing in background
+        background_tasks.add_task(
+            _process_file_background,
+            event_id,
+            file_name,
+            file_path,
+            actual_size,
+            activity_record
+        )
+
+        return {
+            "status": "processing",
+            "filename": file_name,
+            "event_id": event_id
+        }
+
+    except json.JSONDecodeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid JSON in Pub/Sub message: {str(e)}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing Pub/Sub notification: {str(e)}"
+        )
 
 
 @router.get("/watcher/activity", response_model=WatcherActivityResponse)
