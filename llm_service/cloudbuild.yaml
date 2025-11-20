@@ -1,0 +1,42 @@
+steps:
+  # Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'build',
+      '-t',
+      'me-central2-docker.pkg.dev/anb-gpt-prj/cloud-run-source-deploy/rag-llm',
+      '.'
+    ]
+
+  # Push to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'push',
+      'me-central2-docker.pkg.dev/anb-gpt-prj/cloud-run-source-deploy/rag-llm'
+    ]
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args: [
+      'run',
+      'deploy',
+      'rag-llm',
+      '--image=me-central2-docker.pkg.dev/anb-gpt-prj/cloud-run-source-deploy/rag-llm:latest',
+      '--region=me-central2',
+      '--platform=managed',
+      '--memory=2Gi',
+      '--cpu=2',
+      '--min-instances=0',
+      '--max-instances=5',
+      '--port=8001',
+      '--allow-unauthenticated',
+      '--set-env-vars=LLM_PROVIDER=gemini',
+      '--set-env-vars=LLM_MODEL=gemini-2.0-flash',
+      '--set-env-vars=LLM_MAX_TOKENS=4096',
+      '--set-env-vars=LLM_TEMPERATURE=0.7',
+      '--set-env-vars=LLM_API_KEY=AIzaSyCHU9v9-G7PFx2n7pG11Ucmqq80q1pqEpU'
+    ]
+
+images:
+  - 'me-central2-docker.pkg.dev/anb-gpt-prj/cloud-run-source-deploy/rag-llm'
