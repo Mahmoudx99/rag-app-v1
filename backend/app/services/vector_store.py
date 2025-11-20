@@ -1,44 +1,68 @@
 """
-Vector store service using ChromaDB
+Vector store service using Vertex AI Vector Search
 """
 import logging
+import json
 from typing import List, Dict, Any, Optional
-import chromadb
+from google.cloud import aiplatform
+from google.cloud.aiplatform.matching_engine.matching_engine_index_endpoint import MatchNeighbor
 
 logger = logging.getLogger(__name__)
 
 
 class VectorStore:
-    """ChromaDB vector store for managing embeddings"""
+    """Vertex AI Vector Search store for managing embeddings"""
 
-    def __init__(self, host: str, port: int, collection_name: str = "documents"):
+    def __init__(
+        self,
+        project_id: str,
+        region: str,
+        index_endpoint_id: str,
+        deployed_index_id: str,
+        index_id: str = None
+    ):
         """
-        Initialize vector store
+        Initialize Vertex AI Vector Store
 
         Args:
-            host: ChromaDB host
-            port: ChromaDB port
-            collection_name: Name of the collection
+            project_id: GCP project ID
+            region: GCP region
+            index_endpoint_id: Resource ID of the index endpoint
+            deployed_index_id: ID of the deployed index
+            index_id: Resource ID of the index (for updates)
         """
-        self.host = host
-        self.port = port
-        self.collection_name = collection_name
-        self.client = None
-        self.collection = None
+        self.project_id = project_id
+        self.region = region
+        self.index_endpoint_id = index_endpoint_id
+        self.deployed_index_id = deployed_index_id
+        self.index_id = index_id
+        self.endpoint = None
+        self.index = None
         self._initialize()
 
     def _initialize(self):
+        """Initialize connection to Vertex AI"""
         try:
-            logger.info(f"Connecting to ChromaDB at: {self.host}:{self.port}")
-            self.client = chromadb.HttpClient(host=self.host, port=self.port)
-            self.collection = self.client.get_or_create_collection(
-                name=self.collection_name,
-                metadata={"hnsw:space": "cosine"}
+            logger.info(f"Connecting to Vertex AI in {self.region}")
+
+            # Initialize AI Platform
+            aiplatform.init(project=self.project_id, location=self.region)
+
+            # Get the index endpoint
+            self.endpoint = aiplatform.MatchingEngineIndexEndpoint(
+                index_endpoint_name=self.index_endpoint_id
             )
-            logger.info(f"Collection '{self.collection_name}' ready")
+            logger.info(f"Connected to Index Endpoint: {self.endpoint.resource_name}")
+
+            # Get the index for updates
+            if self.index_id:
+                self.index = aiplatform.MatchingEngineIndex(
+                    index_name=self.index_id
+                )
+                logger.info(f"Connected to Index: {self.index.resource_name}")
 
         except Exception as e:
-            logger.error(f"Failed to initialize ChromaDB: {e}")
+            logger.error(f"Failed to initialize Vertex AI Vector Store: {e}")
             raise
 
     def add_documents(
@@ -49,120 +73,54 @@ class VectorStore:
         metadatas: Optional[List[Dict[str, Any]]] = None
     ) -> bool:
         """
-        Add documents to the vector store
+        Add documents to Vertex AI Vector Search via streaming update
 
         Args:
             ids: List of unique document IDs
-            documents: List of document texts
+            documents: List of document texts (stored in database)
             embeddings: List of embedding vectors
-            metadatas: Optional list of metadata dictionaries
+            metadatas: Optional metadata dictionaries
 
         Returns:
             True if successful
         """
         try:
-            logger.info(f"Adding {len(ids)} documents to vector store")
+            logger.info(f"Adding {len(ids)} embeddings to Vertex AI")
 
-            self.collection.add(
-                ids=ids,
-                documents=documents,
-                embeddings=embeddings,
-                metadatas=metadatas if metadatas else None
-            )
+            if not self.index:
+                logger.error("Index not configured for updates")
+                return False
 
-            logger.info(f"Successfully added {len(ids)} documents")
+            # Prepare datapoints for upsert
+            datapoints = []
+            for i, (doc_id, embedding) in enumerate(zip(ids, embeddings)):
+                # Build restricts from metadata for filtering
+                restricts = []
+                if metadatas and i < len(metadatas):
+                    metadata = metadatas[i]
+                    if "document_id" in metadata:
+                        restricts.append({
+                            "namespace": "document_id",
+                            "allow_list": [str(metadata["document_id"])]
+                        })
+
+                datapoint = {
+                    "datapoint_id": doc_id,
+                    "feature_vector": embedding,
+                }
+                if restricts:
+                    datapoint["restricts"] = restricts
+
+                datapoints.append(datapoint)
+
+            # Upsert datapoints using streaming update
+            self.index.upsert_datapoints(datapoints=datapoints)
+
+            logger.info(f"Successfully upserted {len(ids)} embeddings to Vertex AI")
             return True
 
         except Exception as e:
-            logger.error(f"Error adding documents: {e}")
-            raise
-
-    def search(
-        self,
-        query_embedding: List[float],
-        n_results: int = 5,
-        where: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
-        """
-        Search for similar documents
-
-        Args:
-            query_embedding: Query embedding vector
-            n_results: Number of results to return
-            where: Optional metadata filter
-
-        Returns:
-            Search results
-        """
-        try:
-            logger.info(f"Searching for top {n_results} results")
-
-            results = self.collection.query(
-                query_embeddings=[query_embedding],
-                n_results=n_results,
-                where=where
-            )
-
-            return {
-                "ids": results["ids"][0] if results["ids"] else [],
-                "documents": results["documents"][0] if results["documents"] else [],
-                "metadatas": results["metadatas"][0] if results["metadatas"] else [],
-                "distances": results["distances"][0] if results["distances"] else []
-            }
-
-        except Exception as e:
-            logger.error(f"Error searching: {e}")
-            raise
-
-    def delete_by_ids(self, ids: List[str]) -> bool:
-        """
-        Delete documents by IDs
-
-        Args:
-            ids: List of document IDs to delete
-
-        Returns:
-            True if successful
-        """
-        try:
-            logger.info(f"Deleting {len(ids)} documents")
-            self.collection.delete(ids=ids)
-            logger.info(f"Successfully deleted {len(ids)} documents")
-            return True
-
-        except Exception as e:
-            logger.error(f"Error deleting documents: {e}")
-            raise
-
-    def delete_by_source(self, source: str) -> int:
-        """
-        Delete all documents from a specific source
-
-        Args:
-            source: Source filename
-
-        Returns:
-            Number of documents deleted
-        """
-        try:
-            logger.info(f"Deleting documents from source: {source}")
-
-            # Get all IDs with this source
-            results = self.collection.get(
-                where={"source": source}
-            )
-
-            if results["ids"]:
-                self.collection.delete(ids=results["ids"])
-                count = len(results["ids"])
-                logger.info(f"Deleted {count} documents from {source}")
-                return count
-            else:
-                logger.info(f"No documents found for source: {source}")
-                return 0
-
-        except Exception as e:
-            logger.error(f"Error deleting by source: {e}")
+            logger.error(f"Error adding documents to Vertex AI: {e}")
             raise
 
     def add_documents_batch(
@@ -172,19 +130,15 @@ class VectorStore:
         document_id: Optional[int] = None
     ) -> int:
         """
-        Add a batch of chunks to the vector store (used for streaming/incremental inserts).
-
-        This method is designed for progressive insertion during streaming processing,
-        allowing chunks to be stored as they are embedded rather than waiting for
-        all chunks to be ready.
+        Add a batch of chunks to Vertex AI
 
         Args:
             chunks: List of chunk dictionaries with 'id', 'content', and 'metadata'
-            embeddings: List of embedding vectors corresponding to chunks
-            document_id: Optional document ID to add to metadata
+            embeddings: List of embedding vectors
+            document_id: Optional document ID
 
         Returns:
-            Number of chunks successfully added
+            Number of chunks added
         """
         if not chunks or not embeddings:
             return 0
@@ -200,38 +154,133 @@ class VectorStore:
             for chunk in chunks:
                 metadata = chunk["metadata"].copy()
                 if document_id is not None:
-                    metadata["document_id"] = document_id
+                    metadata["document_id"] = str(document_id)
                 metadatas.append(metadata)
 
-            logger.info(f"Adding batch of {len(chunks)} chunks to vector store")
-
-            self.collection.add(
-                ids=ids,
-                documents=documents,
-                embeddings=embeddings,
-                metadatas=metadatas
-            )
-
-            logger.info(f"Successfully added batch of {len(chunks)} chunks")
+            self.add_documents(ids, documents, embeddings, metadatas)
             return len(chunks)
 
         except Exception as e:
-            logger.error(f"Error adding batch of chunks: {e}")
+            logger.error(f"Error adding batch: {e}")
             raise
+
+    def search(
+        self,
+        query_embedding: List[float],
+        n_results: int = 5,
+        where: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Search for similar vectors in Vertex AI
+
+        Args:
+            query_embedding: Query embedding vector
+            n_results: Number of results
+            where: Optional metadata filter
+
+        Returns:
+            Search results with ids and distances
+        """
+        try:
+            logger.info(f"Searching Vertex AI for top {n_results} results")
+
+            # Build numeric filters from where clause
+            numeric_filter = None
+            if where and "document_id" in where:
+                # Vertex AI filter format
+                numeric_filter = [
+                    {
+                        "namespace": "document_id",
+                        "allow_list": [str(where["document_id"])]
+                    }
+                ]
+
+            # Query the index endpoint
+            response = self.endpoint.find_neighbors(
+                deployed_index_id=self.deployed_index_id,
+                queries=[query_embedding],
+                num_neighbors=n_results,
+            )
+
+            # Parse response
+            ids = []
+            distances = []
+
+            if response and len(response) > 0:
+                matches = response[0]  # First query results
+                for match in matches:
+                    ids.append(match.id)
+                    # Vertex AI returns distance (lower = more similar for cosine)
+                    distances.append(match.distance)
+
+            logger.info(f"Found {len(ids)} results")
+
+            # Note: documents and metadatas must be retrieved from database using IDs
+            return {
+                "ids": ids,
+                "documents": [],  # Retrieve from database
+                "metadatas": [],  # Retrieve from database
+                "distances": distances
+            }
+
+        except Exception as e:
+            logger.error(f"Error searching Vertex AI: {e}")
+            raise
+
+    def delete_by_ids(self, ids: List[str]) -> bool:
+        """
+        Delete vectors by IDs from Vertex AI
+
+        Args:
+            ids: List of IDs to delete
+
+        Returns:
+            True if successful
+        """
+        try:
+            if not self.index:
+                logger.error("Index not configured for updates")
+                return False
+
+            logger.info(f"Deleting {len(ids)} datapoints from Vertex AI")
+            self.index.remove_datapoints(datapoint_ids=ids)
+            logger.info(f"Successfully deleted {len(ids)} datapoints")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error deleting from Vertex AI: {e}")
+            raise
+
+    def delete_by_source(self, source: str) -> int:
+        """
+        Delete by source - requires fetching IDs from database first
+
+        Args:
+            source: Source identifier
+
+        Returns:
+            Number deleted (must be tracked externally)
+        """
+        logger.warning(f"delete_by_source not directly supported - use delete_by_ids with IDs from database")
+        return 0
 
     def get_collection_stats(self) -> Dict[str, Any]:
         """
-        Get collection statistics
+        Get index statistics
 
         Returns:
-            Dictionary with collection stats
+            Dictionary with stats
         """
         try:
-            count = self.collection.count()
             return {
-                "name": self.collection_name,
-                "count": count
+                "name": f"vertex-ai-{self.deployed_index_id}",
+                "count": "track_in_database",  # Vertex AI doesn't expose count easily
+                "endpoint": self.index_endpoint_id,
+                "deployed_index": self.deployed_index_id
             }
         except Exception as e:
             logger.error(f"Error getting stats: {e}")
-            return {"name": self.collection_name, "count": 0}
+            return {
+                "name": "vertex-ai",
+                "count": 0
+            }

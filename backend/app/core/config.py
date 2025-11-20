@@ -17,11 +17,14 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:////data/rag_app.db"
     # For GCP Cloud SQL PostgreSQL, set: postgresql://user:pass@/dbname?host=/cloudsql/project:region:instance
 
-    # ChromaDB
-    CHROMA_HOST: str = "chromadb"
-    CHROMA_PORT: int = 8000
-    CHROMA_COLLECTION: str = "documents"
-    CHROMA_PERSIST_DIR: str = "/data/chromadb"
+    # GCP Settings
+    GCP_PROJECT_ID: str = "anb-gpt-prj"
+    GCP_REGION: str = "me-central2"
+
+    # Vertex AI Vector Search
+    VERTEX_AI_INDEX_ENDPOINT_ID: str = "projects/687800931209/locations/me-central2/indexEndpoints/2982368115737755648"
+    VERTEX_AI_DEPLOYED_INDEX_ID: str = "rag_embeddings_v1"
+    VERTEX_AI_INDEX_ID: str = "projects/687800931209/locations/me-central2/indexes/926615623331479552"
 
     # File Storage (Universal location for all documents)
     WATCH_DIR: str = "/data/watch"

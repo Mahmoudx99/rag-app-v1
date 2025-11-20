@@ -19,6 +19,7 @@ torch==2.2.2+cpu
 transformers==4.40.1
 sentence-transformers==2.7.0
 
-chromadb-client
+google-cloud-aiplatform>=1.38.0
+google-cloud-storage>=2.10.0
 python-multipart
 rank-bm25

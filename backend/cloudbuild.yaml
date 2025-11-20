@@ -1,0 +1,52 @@
+steps:
+  # Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'build',
+      '-t',
+      'me-central2-docker.pkg.dev/anb-gpt-prj/cloud-run-source-deploy/rag-backend',
+      '.'
+    ]
+
+  # Push to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'push',
+      'me-central2-docker.pkg.dev/anb-gpt-prj/cloud-run-source-deploy/rag-backend'
+    ]
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args: [
+      'run',
+      'deploy',
+      'rag-backend',
+      '--image=me-central2-docker.pkg.dev/anb-gpt-prj/cloud-run-source-deploy/rag-backend:latest',
+      '--region=me-central2',
+      '--platform=managed',
+      '--memory=4Gi',
+      '--cpu=2',
+      '--min-instances=0',
+      '--max-instances=10',
+      '--port=8000',
+      '--allow-unauthenticated',
+      '--execution-environment=gen2',
+      '--add-volume=name=data-volume,type=cloud-storage,bucket=anb-rag-documents',
+      '--add-volume-mount=volume=data-volume,mount-path=/data',
+      '--set-env-vars=GCP_PROJECT_ID=anb-gpt-prj',
+      '--set-env-vars=GCP_REGION=me-central2',
+      '--set-env-vars=DATABASE_URL=sqlite:////data/rag_app.db',
+      '--set-env-vars=WATCH_DIR=/data/watch',
+      '--set-env-vars=VERTEX_AI_INDEX_ENDPOINT_ID=projects/687800931209/locations/me-central2/indexEndpoints/2982368115737755648',
+      '--set-env-vars=VERTEX_AI_DEPLOYED_INDEX_ID=rag_embeddings_v1',
+      '--set-env-vars=VERTEX_AI_INDEX_ID=projects/687800931209/locations/me-central2/indexes/926615623331479552',
+      '--set-env-vars=EMBEDDING_MODEL=all-MiniLM-L6-v2',
+      '--set-env-vars=CHUNK_SIZE=1000',
+      '--set-env-vars=CHUNK_OVERLAP=200',
+      '--set-env-vars=BATCH_SIZE=32',
+      '--set-env-vars=LLM_SERVICE_URL=https://rag-llm-PLACEHOLDER.run.app'
+    ]
+
+images:
+  - 'me-central2-docker.pkg.dev/anb-gpt-prj/cloud-run-source-deploy/rag-backend'
