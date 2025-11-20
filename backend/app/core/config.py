@@ -23,8 +23,8 @@ class Settings(BaseSettings):
 
     # Vertex AI Vector Search
     VERTEX_AI_INDEX_ENDPOINT_ID: str = "projects/687800931209/locations/me-central2/indexEndpoints/2982368115737755648"
-    VERTEX_AI_DEPLOYED_INDEX_ID: str = "rag_embeddings_v1"
-    VERTEX_AI_INDEX_ID: str = "projects/687800931209/locations/me-central2/indexes/926615623331479552"
+    VERTEX_AI_DEPLOYED_INDEX_ID: str = "rag_embeddings_index_strea_1763631787972"
+    VERTEX_AI_INDEX_ID: str = "projects/687800931209/locations/me-central2/indexes/5538301641758867456"
 
     # File Storage (Universal location for all documents)
     WATCH_DIR: str = "/data/watch"
