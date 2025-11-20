@@ -46,7 +46,7 @@ steps:
       '--set-env-vars=CHUNK_OVERLAP=200',
       '--set-env-vars=BATCH_SIZE=32',
       '--set-env-vars=LLM_SERVICE_URL=https://rag-llm-687800931209.me-central2.run.app',
-      '--set-env-vars=BACKEND_CORS_ORIGINS=["https://rag-frontend-687800931209.me-central2.run.app","http://localhost:3000"]'
+      '--set-env-vars=BACKEND_CORS_ORIGINS=https://rag-frontend-687800931209.me-central2.run.app,http://localhost:3000'
     ]
 
 images:

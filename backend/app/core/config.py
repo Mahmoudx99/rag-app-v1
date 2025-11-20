@@ -44,8 +44,15 @@ class Settings(BaseSettings):
     # LLM Service
     LLM_SERVICE_URL: str = "http://llm:8001"
 
-    # CORS
-    BACKEND_CORS_ORIGINS: list = ["http://localhost:3000", "http://localhost"]
+    # CORS - accepts comma-separated string or list
+    BACKEND_CORS_ORIGINS: str = "http://localhost:3000,http://localhost"
+
+    @property
+    def cors_origins(self) -> list:
+        """Parse CORS origins from comma-separated string."""
+        if isinstance(self.BACKEND_CORS_ORIGINS, list):
+            return self.BACKEND_CORS_ORIGINS
+        return [origin.strip() for origin in self.BACKEND_CORS_ORIGINS.split(",") if origin.strip()]
 
     class Config:
         env_file = ".env"
