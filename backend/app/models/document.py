@@ -54,7 +54,7 @@ class Chunk(Base):
     chunk_id = Column(String(255), unique=True, index=True, nullable=False)  # Vector store ID
     document_id = Column(Integer, ForeignKey("documents.id"), nullable=False, index=True)
     content = Column(Text, nullable=False)
-    metadata = Column(JSON, default=dict)
+    chunk_metadata = Column(JSON, default=dict)
     page_number = Column(Integer, nullable=True)
     chunk_index = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

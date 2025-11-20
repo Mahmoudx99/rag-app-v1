@@ -658,12 +658,12 @@ def _process_file_background(
                 vec_store.add_documents_batch(batch_chunks, batch_embeddings, doc.id)
 
                 # Save chunks to database for retrieval
-                for i, chunk in enumerate(batch_chunks):
+                for chunk in batch_chunks:
                     db_chunk = Chunk(
                         chunk_id=chunk["id"],
                         document_id=doc.id,
                         content=chunk["content"],
-                        metadata=chunk["metadata"],
+                        chunk_metadata=chunk["metadata"],
                         page_number=chunk["metadata"].get("page_number"),
                         chunk_index=chunk["metadata"].get("chunk_index")
                     )

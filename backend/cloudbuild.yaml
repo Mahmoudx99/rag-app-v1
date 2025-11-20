@@ -30,7 +30,6 @@ steps:
       '--min-instances=0',
       '--max-instances=10',
       '--port=8000',
-      '--allow-unauthenticated',
       '--execution-environment=gen2',
       '--add-volume=name=data-volume,type=cloud-storage,bucket=anb-rag-documents',
       '--add-volume-mount=volume=data-volume,mount-path=/data',

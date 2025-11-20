@@ -183,7 +183,7 @@ class HybridSearchService:
                         if chunk_id in chunk_map:
                             chunk = chunk_map[chunk_id]
                             documents.append(chunk.content)
-                            metadatas.append(chunk.metadata or {})
+                            metadatas.append(chunk.chunk_metadata or {})
                         else:
                             # Chunk not found in DB - use placeholder
                             documents.append("")
