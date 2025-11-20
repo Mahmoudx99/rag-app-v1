@@ -4,7 +4,7 @@ steps:
     args: [
       'build',
       '-t',
-      'me-central2-docker.pkg.dev/anb-gpt-prj/cloud-run-source-deploy/rag-frontend',
+      'me-central2-docker.pkg.dev/anb-gpt-prj/cloud-run-source-deploy/rag-frontend:latest',
       '--build-arg',
       'REACT_APP_API_URL=https://rag-backend-687800931209.me-central2.run.app/api/v1',
       '.'
@@ -14,7 +14,7 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args: [
       'push',
-      'me-central2-docker.pkg.dev/anb-gpt-prj/cloud-run-source-deploy/rag-frontend'
+      'me-central2-docker.pkg.dev/anb-gpt-prj/cloud-run-source-deploy/rag-frontend:latest'
     ]
 
   # Deploy to Cloud Run
