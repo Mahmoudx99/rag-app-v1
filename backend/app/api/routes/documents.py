@@ -573,20 +573,15 @@ def get_stats(db: Session = Depends(get_db)):
             func.sum(Document.num_chunks)
         ).scalar() or 0
 
-        _, _, vec_store = get_services()
-        vector_stats = vec_store.get_collection_stats()
-
         return {
             "total_documents": total_docs,
-            "total_chunks": int(total_chunks),
-            "vector_store": vector_stats
+            "total_chunks": int(total_chunks)
         }
     except Exception as e:
         # Return cached/default stats if there's an issue (e.g., during processing)
         return {
             "total_documents": 0,
-            "total_chunks": 0,
-            "vector_store": {"count": 0, "collection": "documents"}
+            "total_chunks": 0
         }
 
 
