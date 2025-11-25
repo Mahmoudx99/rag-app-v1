@@ -839,7 +839,12 @@ async def handle_gcs_cloudevent(
 
         # Debug: Log the entire event structure
         print(f"[GCS-EVENT] ========== NEW EVENT ==========")
-        print(f"[GCS-EVENT] Full CloudEvent: {json.dumps(event, indent=2)}")
+        print(f"[GCS-EVENT] Event keys: {list(event.keys())}")
+        print(f"[GCS-EVENT] Event type field: {event.get('type', 'NOT_FOUND')}")
+        print(f"[GCS-EVENT] Event eventType field: {event.get('eventType', 'NOT_FOUND')}")
+        print(f"[GCS-EVENT] Event source: {event.get('source', 'NOT_FOUND')}")
+        print(f"[GCS-EVENT] Event subject: {event.get('subject', 'NOT_FOUND')}")
+        print(f"[GCS-EVENT] Event data keys: {list(event.get('data', {}).keys())}")
 
         # Validate event type
         event_type = event.get('type', '')
