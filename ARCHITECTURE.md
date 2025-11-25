@@ -215,20 +215,27 @@ GET  /api/v1/health           # Service health
 
 ### 4. Cloud Storage (GCS)
 
-**Bucket:** `anb-rag-documents`
+**Buckets:**
 
-**Structure:**
+**Primary Bucket:** `anb-rag-documents` (mounted at `/data`)
 ```
 anb-rag-documents/
-├── watch/              # PDFs for processing
-├── uploads/            # User uploaded files
+├── uploads/            # User uploaded files (via UI)
 ├── rag_app.db          # SQLite database
 └── processed/          # File tracking data
 ```
 
+**Watch Bucket:** `gcs-rag-watch-bucket` (mounted at `/watch`)
+```
+gcs-rag-watch-bucket/
+└── *.pdf               # Drop PDFs here for auto-processing via Eventarc
+```
+
 **Features:**
-- Mounted to Cloud Run backend at `/data`
-- Supports Eventarc triggers for event-driven processing
+- Two separate buckets for clean separation of concerns
+- `anb-rag-documents`: Application data and UI uploads
+- `gcs-rag-watch-bucket`: Event-driven file ingestion
+- Eventarc triggers on entire watch bucket (no path filtering needed)
 
 ### 5. Vertex AI Vector Search
 
@@ -394,7 +401,7 @@ CREATE TABLE chunks (
 ### Event-Driven Processing (Eventarc)
 
 ```
-1. Upload PDF to: gs://anb-rag-documents/watch/document.pdf
+1. Upload PDF to: gs://gcs-rag-watch-bucket/document.pdf
    ↓
 2. Cloud Storage triggers Eventarc
    (google.cloud.storage.object.v1.finalized)
@@ -403,9 +410,11 @@ CREATE TABLE chunks (
    POST /api/v1/documents/gcs-event
    CloudEvents format (no base64 decoding needed)
    ↓
-4. Backend processes file from /data mount
+4. Backend reads file from /watch mount
    ↓
-5. Document available in search & chat
+5. Process: PDF → chunks → embeddings → Vertex AI
+   ↓
+6. Document available in search & chat
 ```
 
 ## Deployment

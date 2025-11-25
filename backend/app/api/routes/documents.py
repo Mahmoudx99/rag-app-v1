@@ -881,12 +881,12 @@ async def handle_gcs_cloudevent(
         # Extract data from CloudEvents
         data = event.get('data', {})
         bucket_name = data.get('bucket', '')
-        object_name = data.get('name', '')  # e.g., "watch/file.pdf"
+        object_name = data.get('name', '')  # e.g., "document.pdf"
         file_size = int(data.get('size', 0))
 
-        # Only process files in the watch folder
-        if not object_name.startswith('watch/'):
-            return {"status": "ignored", "reason": "Not in watch folder"}
+        # Validate bucket (should be gcs-rag-watch-bucket)
+        if bucket_name != 'gcs-rag-watch-bucket':
+            return {"status": "ignored", "reason": f"Unexpected bucket: {bucket_name}"}
 
         # Only process PDF files
         if not object_name.lower().endswith('.pdf'):
@@ -895,8 +895,8 @@ async def handle_gcs_cloudevent(
         # Extract just the filename
         file_name = os.path.basename(object_name)
 
-        # Build the local file path (GCS is mounted at /data)
-        file_path = f"/data/{object_name}"
+        # Build the local file path (watch bucket is mounted at /watch)
+        file_path = f"/watch/{object_name}"
 
         # Check if file exists (GCS mount)
         if not os.path.exists(file_path):

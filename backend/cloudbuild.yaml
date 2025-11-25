@@ -33,6 +33,8 @@ steps:
       '--execution-environment=gen2',
       '--add-volume=name=data-volume,type=cloud-storage,bucket=anb-rag-documents',
       '--add-volume-mount=volume=data-volume,mount-path=/data',
+      '--add-volume=name=watch-volume,type=cloud-storage,bucket=gcs-rag-watch-bucket',
+      '--add-volume-mount=volume=watch-volume,mount-path=/watch',
       '--set-env-vars=GCP_PROJECT_ID=anb-gpt-prj',
       '--set-env-vars=GCP_REGION=me-central2',
       '--set-env-vars=DATABASE_URL=sqlite:////data/rag_app.db',
