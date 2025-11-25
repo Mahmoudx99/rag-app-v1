@@ -161,7 +161,7 @@ GET    /api/v1/documents/
 DELETE /api/v1/documents/{id}
 POST   /api/v1/search/
 POST   /api/v1/chat/
-POST   /api/v1/documents/pubsub  (Cloud Storage events)
+POST   /api/v1/documents/gcs-event  (Cloud Storage events via Eventarc)
 GET    /health
 ```
 
@@ -228,7 +228,7 @@ anb-rag-documents/
 
 **Features:**
 - Mounted to Cloud Run backend at `/data`
-- Supports Pub/Sub notifications for event-driven processing
+- Supports Eventarc triggers for event-driven processing
 
 ### 5. Vertex AI Vector Search
 
@@ -391,15 +391,17 @@ CREATE TABLE chunks (
 7. Return response with sources
 ```
 
-### Event-Driven Processing (Optional)
+### Event-Driven Processing (Eventarc)
 
 ```
-1. Upload PDF to GCS bucket
+1. Upload PDF to: gs://anb-rag-documents/watch/document.pdf
    ↓
-2. Cloud Storage → Pub/Sub notification
+2. Cloud Storage triggers Eventarc
+   (google.cloud.storage.object.v1.finalized)
    ↓
-3. Pub/Sub → Cloud Run backend
-   POST /api/v1/documents/pubsub
+3. Eventarc → Cloud Run backend
+   POST /api/v1/documents/gcs-event
+   CloudEvents format (no base64 decoding needed)
    ↓
 4. Backend processes file from /data mount
    ↓

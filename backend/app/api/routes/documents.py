@@ -4,7 +4,6 @@ Documents API routes - Upload, list, and delete documents
 import os
 import uuid
 import shutil
-import base64
 import json
 from datetime import datetime
 from pathlib import Path
@@ -132,19 +131,6 @@ class ProcessFileResponse(BaseModel):
     num_chunks: int = 0
     message: str
     event_id: str
-
-
-class PubSubMessage(BaseModel):
-    """Pub/Sub push message format."""
-    data: str  # Base64 encoded
-    messageId: str
-    attributes: dict = {}
-
-
-class PubSubPushRequest(BaseModel):
-    """Request format for Pub/Sub push endpoint."""
-    message: PubSubMessage
-    subscription: str
 
 
 class WatcherActivityItem(BaseModel):
@@ -865,27 +851,38 @@ async def process_file_from_watcher(
     )
 
 
-@router.post("/pubsub", status_code=status.HTTP_200_OK)
-async def handle_pubsub_notification(
-    request: PubSubPushRequest,
+@router.post("/gcs-event", status_code=status.HTTP_200_OK)
+async def handle_gcs_cloudevent(
+    request: Request,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
     """
-    Handle Pub/Sub push notifications from Cloud Storage.
+    Handle CloudEvents from Eventarc triggered by Cloud Storage.
 
-    This endpoint receives notifications when files are uploaded to the
-    GCS bucket. It decodes the message and triggers document processing.
+    This endpoint receives direct Cloud Storage events via Eventarc when
+    files are uploaded to the GCS bucket. The event format is CloudEvents,
+    which is simpler than Pub/Sub format.
+
+    Event type: google.cloud.storage.object.v1.finalized
     """
     try:
-        # Decode the base64 Pub/Sub message data
-        message_data = base64.b64decode(request.message.data).decode('utf-8')
-        gcs_event = json.loads(message_data)
+        # Parse CloudEvents format
+        event = await request.json()
 
-        # Extract file information from GCS event
-        bucket_name = gcs_event.get('bucket')
-        object_name = gcs_event.get('name', '')  # e.g., "watch/file.pdf"
-        file_size = int(gcs_event.get('size', 0))
+        # Validate event type
+        event_type = event.get('type', '')
+        if event_type != 'google.cloud.storage.object.v1.finalized':
+            return {
+                "status": "ignored",
+                "reason": f"Unsupported event type: {event_type}"
+            }
+
+        # Extract data from CloudEvents
+        data = event.get('data', {})
+        bucket_name = data.get('bucket', '')
+        object_name = data.get('name', '')  # e.g., "watch/file.pdf"
+        file_size = int(data.get('size', 0))
 
         # Only process files in the watch folder
         if not object_name.startswith('watch/'):
@@ -931,8 +928,8 @@ async def handle_pubsub_notification(
                 "reason": f"File too large. Maximum size is {settings.MAX_UPLOAD_SIZE / 1024 / 1024}MB"
             }
 
-        # Generate event ID from Pub/Sub message ID
-        event_id = request.message.messageId
+        # Generate event ID from CloudEvents ID
+        event_id = event.get('id', str(uuid.uuid4()))
 
         # Track activity for UI
         activity_record = {
@@ -970,18 +967,19 @@ async def handle_pubsub_notification(
         return {
             "status": "processing",
             "filename": file_name,
-            "event_id": event_id
+            "event_id": event_id,
+            "source": "cloud_storage_event"
         }
 
     except json.JSONDecodeError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid JSON in Pub/Sub message: {str(e)}"
+            detail=f"Invalid JSON in CloudEvent: {str(e)}"
         )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error processing Pub/Sub notification: {str(e)}"
+            detail=f"Error processing CloudEvent: {str(e)}"
         )
 
 
