@@ -16,10 +16,14 @@ class Settings(BaseSettings):
     PORT: int = 8001
 
     # LLM Provider settings
-    LLM_PROVIDER: str = "gemini"  # gemini, openai, ollama
-    LLM_API_KEY: str = ""
-    LLM_MODEL: str = "gemini-2.0-flash"
+    LLM_PROVIDER: str = "vertex_ai"  # vertex_ai, openai, ollama
+    LLM_MODEL: str = "llama-3.1-8b"  # Model name for reference
     LLM_BASE_URL: Optional[str] = None  # For local models like Ollama
+
+    # Vertex AI settings
+    VERTEX_AI_PROJECT_ID: str = ""
+    VERTEX_AI_LOCATION: str = "me-central2"
+    VERTEX_AI_LLM_ENDPOINT_ID: str = ""  # Deployed model endpoint ID
 
     # Generation settings
     LLM_MAX_TOKENS: int = 4096

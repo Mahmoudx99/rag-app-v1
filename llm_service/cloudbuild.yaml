@@ -31,11 +31,13 @@ steps:
       '--max-instances=5',
       '--port=8001',
       '--allow-unauthenticated',
-      '--set-env-vars=LLM_PROVIDER=gemini',
-      '--set-env-vars=LLM_MODEL=gemini-2.0-flash',
+      '--set-env-vars=LLM_PROVIDER=vertex_ai',
+      '--set-env-vars=LLM_MODEL=llama-3.1-8b',
       '--set-env-vars=LLM_MAX_TOKENS=4096',
       '--set-env-vars=LLM_TEMPERATURE=0.7',
-      '--set-env-vars=LLM_API_KEY=AIzaSyCHU9v9-G7PFx2n7pG11Ucmqq80q1pqEpU'
+      '--set-env-vars=VERTEX_AI_PROJECT_ID=anb-gpt-prj',
+      '--set-env-vars=VERTEX_AI_LOCATION=me-central2',
+      '--set-env-vars=VERTEX_AI_LLM_ENDPOINT_ID=YOUR_ENDPOINT_ID'
     ]
 
 images:

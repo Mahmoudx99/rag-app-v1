@@ -8,7 +8,34 @@
       "status": "deleted",
       "event_id": "7bda7c2e-aa35-4b9c-b9da-96fd6da4ed34",
       "error_message": null
+    },
+    "/data/watch/Resistor.pdf:1015966": {
+      "file_path": "/data/watch/Resistor.pdf",
+      "file_name": "Resistor.pdf",
+      "file_size": 1015966,
+      "processed_at": "2025-11-23T13:32:12.125610",
+      "status": "success",
+      "event_id": "0c8b4f7d-cfdc-49a8-8dd9-7215df69fe0e",
+      "error_message": null
+    },
+    "/data/watch/Mesh_analysis.pdf:232717": {
+      "file_path": "/data/watch/Mesh_analysis.pdf",
+      "file_name": "Mesh_analysis.pdf",
+      "file_size": 232717,
+      "processed_at": "2025-11-23T13:32:12.146228",
+      "status": "success",
+      "event_id": "179fd2b0-b5a0-41e1-9868-91a45790aa05",
+      "error_message": null
+    },
+    "/data/watch/Kirchhoff's_circuit_laws.pdf:284218": {
+      "file_path": "/data/watch/Kirchhoff's_circuit_laws.pdf",
+      "file_name": "Kirchhoff's_circuit_laws.pdf",
+      "file_size": 284218,
+      "processed_at": "2025-11-23T13:32:12.164368",
+      "status": "success",
+      "event_id": "a99df299-f9e2-4b7c-850b-1393ec8d8e0c",
+      "error_message": null
     }
   },
-  "last_updated": "2025-11-19T13:37:26.509583"
+  "last_updated": "2025-11-23T13:32:12.164653"
 }

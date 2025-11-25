@@ -1,479 +1,351 @@
-# 🏗️ RAG Knowledge Base - Architecture Documentation
+# RAG Knowledge Base - Architecture Documentation
 
 ## System Overview
 
-The RAG Knowledge Base is a microservices-based application designed for semantic search and AI-powered chat across PDF documents. It uses modern containerization, vector databases, machine learning for efficient document retrieval, and LLM integration for intelligent question answering.
+The RAG Knowledge Base is a microservices-based application deployed on Google Cloud Platform (GCP). It provides semantic search and AI-powered chat across PDF documents using Vertex AI Vector Search for embeddings and Vertex AI Model Garden for open-source LLM inference.
 
 ## Architecture Diagram
 
 ```
-┌────────────────────────────────────────────────────────────────────┐
-│                           User Browser                             │
-└───────────────────────────┬────────────────────────────────────────┘
-                            │ HTTP
-                            ↓
-┌───────────────────────────────────────────────────────────────────┐
-│                    Frontend Container (Nginx + React)             │
-│  ┌──────────────────────────────────────────────────────────┐     │
-│  │  • React 18 SPA                                          │     │
-│  │  • Drag & Drop Upload                                    │     │
-│  │  • Hybrid Search Interface (Semantic + Keyword)          │     │
-│  │  • AI Chat Interface with Context Viewer                 │     │
-│  │  • Document Management UI                                │     │
-│  │  • Advanced Search Filters                               │     │
-│  └──────────────────────────────────────────────────────────┘     │
-└───────────────────────────┬───────────────────────────────────────┘
-                            │ REST API (Port 8000)
-                            ↓
-┌───────────────────────────────────────────────────────────────────┐
-│              Backend Container (FastAPI + Python)                 │
-│  ┌──────────────┬──────────────┬──────────────┬──────────────┐   │
-│  │ PDF          │ Embedding    │ Hybrid       │ Chat         │   │
-│  │ Processor    │ Service      │ Search Svc   │ Service      │   │
-│  │              │              │              │              │   │
-│  │ • Plain Mode │ • Sentence   │ • BM25       │ • LLM        │   │
-│  │ • Paragraph  │   Transform  │ • Semantic   │   Orchestr.  │   │
-│  │   Chunking   │ • Batch      │ • RRF Fusion │ • Context    │   │
-│  │ • Metadata
-   │   Embed
-   |could be saved 
-   |in redis      │ • Boolean    │   Injection  │   │
-│  └──────────────┴──────────────┴──────────────┴──────────────┘   │
-│                                                                   │
-│  API Routes:                                                      │
-│  • POST   /api/v1/documents/upload                                │
-│  • POST   /api/v1/documents/process-file  ← File Watcher Events  │
-│  • GET    /api/v1/documents/                                      │
-│  • DELETE /api/v1/documents/{id}                                  │
-│  • POST   /api/v1/search/                                         │
-│  • POST   /api/v1/chat/                                           │
-└──────┬────────────────┬─────────────┬───────────────┬─────────────┘
-       │                │             │               │        ↑
-       │ SQLAlchemy     │ File System │ ChromaDB      │        │ HTTP Event
-       ↓                ↓             ↓               ↓        │
-┌──────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────────┐
-│ PostgreSQL   │ │ File Storage│ │  ChromaDB   │ │ LLM Service     │
-│              │ │             │ │             │ │ Container       │
-│ • Documents  │ │ • /data/    │ │ • Vectors   │ │                 │
-│   Metadata   │ │   uploads/  │ │ • Embeddings│ │ • Gemini 2.0    │
-│ • Status     │ │ • /data/    │ │ • Cosine Sim│ │ • Tool Calling  │
-│ • Chunk IDs  │ │   watch/    │ │ • Persistence│ │ • Model Agnostic│
-└──────────────┘ └──────┬──────┘ └─────────────┘ └─────────────────┘
-                        │
-                        │ File System Events
-                        ↓
-               ┌─────────────────────────────────────┐
-               │   File Watcher Service (Python)    │
-               │                                     │
-               │  • Watchdog (filesystem monitor)   │
-               │  • Event-driven architecture       │
-               │  • GCP-ready design (Pub/Sub)      │
-               │  • Idempotent processing           │
-               │  • Automatic retry logic           │
-               │                                     │
-               │  GCP Migration Path:               │
-               │  → Cloud Storage Triggers          │
-               │  → Cloud Functions                 │
-               │  → Pub/Sub messaging               │
-               └─────────────────────────────────────┘
+                         ┌─────────────────────────────┐
+                         │      User Browser           │
+                         └─────────────┬───────────────┘
+                                       │ HTTPS
+                                       ↓
+┌──────────────────────────────────────────────────────────────────────────┐
+│                        Google Cloud Platform (me-central2)               │
+├──────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │                    Cloud Run Services                           │    │
+│  │                                                                  │    │
+│  │  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐         │    │
+│  │  │  Frontend    │   │   Backend    │   │ LLM Service  │         │    │
+│  │  │  (React)     │   │  (FastAPI)   │   │  (FastAPI)   │         │    │
+│  │  │              │   │              │   │              │         │    │
+│  │  │ 512Mi, 1 CPU │   │ 4Gi, 2 CPU   │   │ 2Gi, 2 CPU   │         │    │
+│  │  │ Port 80      │   │ Port 8000    │   │ Port 8001    │         │    │
+│  │  └──────┬───────┘   └──────┬───────┘   └──────┬───────┘         │    │
+│  │         │                  │                   │                 │    │
+│  └─────────┼──────────────────┼───────────────────┼─────────────────┘    │
+│            │                  │                   │                      │
+│            │ REST API         │                   │                      │
+│            └─────────────────►│◄──────────────────┘                      │
+│                               │                                          │
+│            ┌──────────────────┼──────────────────────┐                   │
+│            │                  │                      │                   │
+│            ↓                  ↓                      ↓                   │
+│  ┌──────────────┐   ┌──────────────────┐   ┌──────────────────┐         │
+│  │ Cloud Storage│   │  Vertex AI       │   │  Vertex AI       │         │
+│  │              │   │  Vector Search   │   │  Model Garden    │         │
+│  │ Bucket:      │   │                  │   │                  │         │
+│  │ anb-rag-     │   │ Index Endpoint:  │   │ Llama 3.1 8B     │         │
+│  │ documents    │   │ 2982368...       │   │ (or Mistral,     │         │
+│  │              │   │                  │   │  Gemma)          │         │
+│  │ • PDFs       │   │ • 384-dim        │   │                  │         │
+│  │ • SQLite DB  │   │   embeddings     │   │ • Text generation│         │
+│  │              │   │ • Cosine sim     │   │ • Streaming      │         │
+│  └──────────────┘   └──────────────────┘   └──────────────────┘         │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
+
+## GCP Project Details
+
+| Resource | Value |
+|----------|-------|
+| Project ID | `anb-gpt-prj` |
+| Region | `me-central2` (Middle East) |
+| Artifact Registry | `me-central2-docker.pkg.dev/anb-gpt-prj/cloud-run-source-deploy` |
 
 ## Component Details
 
-### 1. Frontend (React + Nginx)
+### 1. Frontend (Cloud Run)
+
+**Service:** `rag-frontend`
 
 **Technology Stack:**
 - React 18
+- Nginx (serving)
 - Axios for API calls
-- React Dropzone for file uploads
-- React Toastify for notifications
-- Nginx for production serving
+
+**Resources:**
+- Memory: 512Mi
+- CPU: 1
+- Min instances: 0
+- Max instances: 5
 
 **Key Features:**
 - Responsive, modern UI
 - Tab-based navigation (Search/Chat/Documents)
-- Real-time upload progress
 - Drag & drop file upload
-- Hybrid search with mode selection (Semantic/Keyword/Hybrid)
-- Advanced search filters (date, document, boolean operators)
-- AI Chat interface with context viewer
-- Chunk selection for RAG context
-- Document management (view/delete)
-- Statistics dashboard
+- Hybrid search interface
+- AI Chat with context viewer
+- Document management
 
-**Files:**
+**Environment:**
 ```
-frontend/
-├── src/
-│   ├── components/
-│   │   ├── DocumentList.js       # Document grid view
-│   │   ├── SearchBar.js          # Search input with mode selector
-│   │   ├── SearchResults.js      # Results with chunk selection
-│   │   ├── AdvancedSearch.js     # Filter panel
-│   │   ├── ChatInterface.js      # AI chat UI
-│   │   ├── UploadArea.js         # Drag & drop upload
-│   │   └── PDFViewer.js          # PDF preview modal
-│   ├── services/
-│   │   └── api.js                # API client (documents, search, chat)
-│   └── App.js                    # Main component
-└── Dockerfile                    # Multi-stage build
+REACT_APP_API_URL=https://rag-backend-687800931209.me-central2.run.app/api/v1
 ```
 
-### 2. Backend (FastAPI)
+### 2. Backend (Cloud Run)
+
+**Service:** `rag-backend`
 
 **Technology Stack:**
-- FastAPI (async Python web framework)
+- FastAPI (async Python)
 - SQLAlchemy (ORM)
-- Pydantic (data validation)
-- pdfminer.six (PDF processing)
 - sentence-transformers (embeddings)
-- ChromaDB (vector storage)
-- rank-bm25 (keyword search)
-- httpx (async HTTP client for LLM service)
+- google-cloud-aiplatform (Vertex AI SDK)
 
-**Architecture Pattern:**
-- **Layered Architecture**
-  - API Layer (routes)
-  - Service Layer (business logic)
-  - Data Layer (models, database)
+**Resources:**
+- Memory: 4Gi
+- CPU: 2
+- Min instances: 0
+- Max instances: 10
+- Execution environment: gen2
+
+**Environment Variables:**
+```
+GCP_PROJECT_ID=anb-gpt-prj
+GCP_REGION=me-central2
+DATABASE_URL=sqlite:////data/rag_app.db
+WATCH_DIR=/data/watch
+VERTEX_AI_INDEX_ENDPOINT_ID=projects/687800931209/locations/me-central2/indexEndpoints/2982368115737755648
+VERTEX_AI_DEPLOYED_INDEX_ID=rag_embeddings_index_strea_1763631787972
+VERTEX_AI_INDEX_ID=projects/687800931209/locations/me-central2/indexes/5538301641758867456
+EMBEDDING_MODEL=all-MiniLM-L6-v2
+CHUNK_SIZE=1000
+CHUNK_OVERLAP=200
+BATCH_SIZE=32
+LLM_SERVICE_URL=https://rag-llm-687800931209.me-central2.run.app
+```
+
+**Storage Mount:**
+- GCS bucket `anb-rag-documents` mounted at `/data`
 
 **Key Services:**
 
-#### PDF Processor Service
-```python
-class PDFProcessor:
-    - extract_metadata()  # Extract PDF info
-    - extract_text()      # Plain text extraction
-    - chunk_text()        # Paragraph-based chunking
-    - process_pdf()       # Complete workflow
-```
-
-**Chunking Algorithm:**
-1. Extract paragraphs (split on `\n\n`)
-2. Check paragraph length
-3. If < chunk_size: Keep as single chunk
-4. If > chunk_size: Split by sentences
-5. Apply overlap between chunks
-6. Generate unique chunk IDs (hash-based)
+#### PDF Processor
+- Text extraction with pdfminer.six
+- Paragraph-based chunking (1000 chars, 200 overlap)
+- Streaming processing for large files
+- Metadata extraction (title, author, pages)
 
 #### Embedding Service
-```python
-class EmbeddingService:
-    - load_model()           # Load sentence-transformers
-    - generate_embeddings()  # Batch processing
-    - generate_embedding()   # Single text
-```
+- Model: `all-MiniLM-L6-v2` (384 dimensions)
+- Batch processing (32 texts per batch)
+- Normalized embeddings
 
-**Model Details:**
-- Default: all-MiniLM-L6-v2 (downloaded at build time)
-- Dimensions: 384
-- Normalized embeddings (unit length)
-- Batch size: 32 (configurable)
-- Offline mode enabled (no runtime downloads)
+#### Vector Store (Vertex AI)
+- Upserts via streaming updates
+- Similarity search with `find_neighbors()`
+- Metadata filtering by document ID
+- Delete by chunk IDs
 
-#### Hybrid Search Service
-```python
-class HybridSearchService:
-    - hybrid_search()        # Combined search
-    - _semantic_search()     # Vector similarity
-    - _keyword_search()      # BM25 ranking
-    - _reciprocal_rank_fusion()  # Score combination
-```
-
-**Search Modes:**
-- **Hybrid**: Combines semantic + keyword with RRF
-- **Semantic**: Pure vector similarity search
-- **Keyword**: BM25 text matching
-
-**Advanced Filters:**
-- Date range filtering
-- Document ID filtering
-- Boolean operators (AND/NOT/OR)
+#### Hybrid Search
+- **Semantic search:** Vertex AI Vector Search
+- **Keyword search:** BM25 (disabled for Vertex AI)
+- RRF fusion when both available
 
 #### Chat Service
-```python
-class ChatService:
-    - chat()                 # Main orchestration
-    - _call_llm_generate()   # Direct LLM call
-    - _chat_with_tools()     # Tool-based search
-    - get_history()          # Conversation history
-    - clear_history()        # Reset conversation
-```
-
-**Features:**
-- Conversation history management
 - Context injection from selected chunks
+- Conversation history management
 - Tool calling for AI-driven search
-- Async HTTP communication with LLM service
 
-#### Vector Store Service
-```python
-class VectorStore:
-    - add_documents()     # Bulk insert
-    - search()            # Similarity search
-    - delete_by_ids()     # Remove chunks
-    - delete_by_source()  # Remove by document
+**API Routes:**
+```
+POST   /api/v1/documents/upload
+POST   /api/v1/documents/process-file
+GET    /api/v1/documents/
+DELETE /api/v1/documents/{id}
+POST   /api/v1/search/
+POST   /api/v1/chat/
+POST   /api/v1/documents/pubsub  (Cloud Storage events)
+GET    /health
 ```
 
-**ChromaDB Configuration:**
-- Distance metric: Cosine similarity
-- Index: HNSW (approximate nearest neighbors)
-- Persistent storage: DuckDB + Parquet
+### 3. LLM Service (Cloud Run)
 
-**Files:**
-```
-backend/
-├── app/
-│   ├── api/routes/
-│   │   ├── documents.py      # Document CRUD
-│   │   ├── search.py         # Hybrid search endpoint
-│   │   └── chat.py           # Chat orchestration
-│   ├── core/
-│   │   ├── config.py         # Settings
-│   │   └── database.py       # DB connection
-│   ├── models/
-│   │   └── document.py       # SQLAlchemy models
-│   ├── services/
-│   │   ├── pdf_processor.py
-│   │   ├── embedding_service.py
-│   │   ├── vector_store.py
-│   │   ├── hybrid_search.py   # BM25 + Semantic
-│   │   └── chat_service.py    # LLM orchestration
-│   └── main.py              # FastAPI app
-├── Dockerfile
-├── requirements.txt          # Core dependencies
-└── requirements-chat.txt     # LLM integration deps
-```
-
-### 3. File Watcher Service (Event-Driven Processing)
-
-**Purpose:** Automatic PDF processing by monitoring a folder
-
-**Technology Stack:**
-- Python 3.11
-- watchdog (filesystem monitoring)
-- httpx (async HTTP client)
-- pydantic-settings (configuration)
-- python-json-logger (structured logging)
-
-**Architecture Pattern:**
-- **Event-Driven** - Decoupled file detection from processing
-- **GCP-Ready** - Designed to map directly to Cloud Storage + Pub/Sub
-
-**Key Components:**
-
-#### Watcher Service
-```python
-class FolderWatcher:
-    - start()                    # Begin monitoring
-    - _process_existing_files()  # Handle files on startup
-    - _stability_check_loop()    # Ensure uploads complete
-    - _create_file_event()       # Generate event payload
-```
-
-#### Event Publisher (Abstraction for Pub/Sub)
-```python
-class EventPublisher(ABC):
-    - publish()                  # Send event to backend
-    - close()                    # Cleanup
-
-class DirectHTTPPublisher(EventPublisher):
-    - publish()                  # HTTP POST to backend
-    # GCP: Replace with PubSubEventPublisher
-```
-
-#### File Tracker (Idempotency)
-```python
-class FileTracker:
-    - is_processed()     # Check if already processed
-    - mark_pending()     # Start tracking
-    - mark_success()     # Completed successfully
-    - mark_failed()      # Track failures
-```
-
-**Event Schema (GCS-Compatible):**
-```python
-@dataclass
-class FileEvent:
-    event_type: str      # "OBJECT_FINALIZE" (GCS standard)
-    file_path: str       # Full path to file
-    file_name: str       # Filename only
-    file_size: int       # File size in bytes
-    bucket: str          # Watch folder (maps to GCS bucket)
-    timestamp: str       # ISO timestamp
-    event_id: str        # Unique event ID
-```
-
-**Features:**
-- Automatic folder monitoring
-- File stability detection (ensures upload complete)
-- Idempotent processing (no duplicates)
-- Retry logic for failed processing
-- Structured JSON logging (Cloud Logging ready)
-- Graceful shutdown handling
-
-**Files:**
-```
-file_watcher_service/
-├── app/
-│   ├── main.py              # Service entry point
-│   ├── config.py            # Configuration (env vars)
-│   ├── watcher.py           # Filesystem monitoring
-│   ├── event_publisher.py   # Event publishing abstraction
-│   └── file_tracker.py      # Deduplication tracker
-├── Dockerfile
-└── requirements.txt
-```
-
-**Configuration (Environment Variables):**
-```bash
-WATCHER_WATCH_FOLDER=/data/watch
-WATCHER_BACKEND_URL=http://backend:8000
-WATCHER_FILE_STABILITY_THRESHOLD=5.0
-WATCHER_MAX_RETRIES=3
-WATCHER_PROCESS_EXISTING_ON_STARTUP=true
-```
-
-### 4. LLM Service (Gemini)
-
-**Purpose:** Model-agnostic LLM integration for AI chat
+**Service:** `rag-llm`
 
 **Technology Stack:**
 - FastAPI
-- Google Generative AI (Gemini)
+- google-cloud-aiplatform (Vertex AI SDK)
 - Abstract provider pattern
+
+**Resources:**
+- Memory: 2Gi
+- CPU: 2
+- Min instances: 0
+- Max instances: 5
+
+**Environment Variables:**
+```
+LLM_PROVIDER=vertex_ai
+LLM_MODEL=llama-3.1-8b
+LLM_MAX_TOKENS=4096
+LLM_TEMPERATURE=0.7
+VERTEX_AI_PROJECT_ID=anb-gpt-prj
+VERTEX_AI_LOCATION=me-central2
+VERTEX_AI_LLM_ENDPOINT_ID=<deployed-model-endpoint>
+```
 
 **Architecture:**
 ```python
-# Factory pattern for model swapping
 class BaseLLMProvider:
     - generate()              # Standard generation
     - generate_stream()       # Streaming response
     - generate_with_tools()   # Function calling
     - health_check()          # Service health
 
-class GeminiProvider(BaseLLMProvider):
-    - Gemini 2.0 Flash model
-    - Safety settings configured
-    - Tool/function calling support
-```
-
-**Features:**
-- Model-agnostic design (easy to swap providers)
-- Function/tool calling for autonomous search
-- Streaming support
-- Conversation history handling
-- Context injection
-
-**Files:**
-```
-llm_service/
-├── app/
-│   ├── providers/
-│   │   ├── base.py           # Abstract base class
-│   │   ├── gemini.py         # Gemini implementation
-│   │   └── factory.py        # Provider factory
-│   ├── routes/
-│   │   └── chat.py           # API endpoints
-│   ├── config.py             # Settings
-│   └── main.py               # FastAPI app
-├── Dockerfile
-└── requirements.txt
+class VertexAIProvider(BaseLLMProvider):
+    - Deploys to Vertex AI Model Garden endpoints
+    - Supports Llama 3.1, Mistral, Gemma, etc.
+    - Chat-style prompt formatting
 ```
 
 **API Endpoints:**
-- `POST /api/v1/generate` - Standard generation
-- `POST /api/v1/generate/stream` - Streaming
-- `POST /api/v1/generate/with-tools` - Tool calling
-- `GET /api/v1/health` - Service health
-
-### 4. PostgreSQL
-
-**Purpose:** Metadata storage and document tracking
-
-**Schema:**
-```sql
-CREATE TABLE documents (
-    id SERIAL PRIMARY KEY,
-    filename VARCHAR(255) NOT NULL,
-    original_filename VARCHAR(255) NOT NULL,
-    file_path VARCHAR(512) NOT NULL,
-    file_size INTEGER NOT NULL,
-    title VARCHAR(512),
-    author VARCHAR(255),
-    num_pages INTEGER,
-    num_chunks INTEGER DEFAULT 0,
-    chunk_ids JSON,
-    uploaded_at TIMESTAMP DEFAULT NOW(),
-    processed_at TIMESTAMP,
-    status VARCHAR(50) DEFAULT 'pending',
-    error_message TEXT
-);
+```
+POST /api/v1/generate         # Standard generation
+POST /api/v1/generate/stream  # Streaming
+POST /api/v1/generate/with-tools  # Tool calling
+GET  /api/v1/health           # Service health
 ```
 
-**Why PostgreSQL?**
-- ACID compliance
-- JSON support for chunk_ids
-- Reliable metadata storage
-- Easy backups
-- Well-supported
+### 4. Cloud Storage (GCS)
 
-### 5. ChromaDB
+**Bucket:** `anb-rag-documents`
 
-**Purpose:** Vector embeddings storage and similarity search
+**Structure:**
+```
+anb-rag-documents/
+├── watch/              # PDFs for processing
+├── uploads/            # User uploaded files
+├── rag_app.db          # SQLite database
+└── processed/          # File tracking data
+```
+
+**Features:**
+- Mounted to Cloud Run backend at `/data`
+- Supports Pub/Sub notifications for event-driven processing
+
+### 5. Vertex AI Vector Search
+
+**Index Configuration:**
+- Dimensions: 384 (all-MiniLM-L6-v2)
+- Distance metric: Cosine similarity
+- Index type: Streaming updates
+
+**Resources:**
+- Index ID: `5538301641758867456`
+- Endpoint ID: `2982368115737755648`
+- Deployed Index ID: `rag_embeddings_index_strea_1763631787972`
 
 **Data Structure:**
 ```python
 {
     "id": "chunk_abc123_0001_xyz789",
     "embedding": [0.123, -0.456, ...],  # 384 dims
-    "document": "text content",
-    "metadata": {
-        "document_id": 1,
-        "document_filename": "file.pdf",
-        "source": "file.pdf",
-        "chunk_index": 0,
-        "char_count": 876,
-        "word_count": 120
-    }
+    "restricts": [
+        {"namespace": "document_id", "allow_list": ["1"]}
+    ]
 }
 ```
 
-**Why ChromaDB?**
-- Simple Python API
-- Built-in persistence
-- Fast similarity search
-- Low resource requirements
-- Perfect for RAG applications
+**Chunk Content Storage:**
+Embeddings stored in Vertex AI, content stored in SQLite:
+```sql
+CREATE TABLE chunks (
+    chunk_id VARCHAR PRIMARY KEY,  -- Vertex AI ID
+    document_id INTEGER,
+    content TEXT,
+    metadata JSON,
+    page_number INTEGER,
+    chunk_index INTEGER
+);
+```
+
+### 6. Vertex AI Model Garden
+
+**Purpose:** Host open-source LLMs for text generation
+
+**Supported Models:**
+- Llama 3.1 8B (recommended)
+- Mistral 7B
+- Gemma 2
+
+**Deployment:**
+1. Go to Vertex AI Model Garden in GCP Console
+2. Select and deploy desired model
+3. Note the endpoint ID
+4. Update `VERTEX_AI_LLM_ENDPOINT_ID` in LLM service
+
+### 7. Database (SQLite / Cloud SQL)
+
+**Current:** SQLite on GCS mount
+```
+DATABASE_URL=sqlite:////data/rag_app.db
+```
+
+**Production Option:** Cloud SQL PostgreSQL
+```
+DATABASE_URL=postgresql://user:pass@/dbname?host=/cloudsql/project:region:instance
+```
+
+**Schema:**
+```sql
+CREATE TABLE documents (
+    id SERIAL PRIMARY KEY,
+    filename VARCHAR(255) NOT NULL,
+    original_filename VARCHAR(255),
+    file_path VARCHAR(512) NOT NULL,
+    file_size INTEGER NOT NULL,
+    title VARCHAR(512),
+    author VARCHAR(255),
+    num_pages INTEGER,
+    num_chunks INTEGER DEFAULT 0,
+    uploaded_at TIMESTAMP DEFAULT NOW(),
+    processed_at TIMESTAMP,
+    status VARCHAR(50) DEFAULT 'pending',
+    error_message TEXT,
+    chunks_processed INTEGER DEFAULT 0
+);
+
+CREATE TABLE chunks (
+    chunk_id VARCHAR PRIMARY KEY,
+    document_id INTEGER REFERENCES documents(id),
+    content TEXT,
+    metadata JSON,
+    page_number INTEGER,
+    chunk_index INTEGER
+);
+```
 
 ## Data Flow
 
 ### Upload Workflow
 
 ```
-1. User uploads PDF
+1. User uploads PDF via frontend
    ↓
 2. Frontend → POST /api/v1/documents/upload
    ↓
-3. Backend saves file to /data/uploads/
+3. Backend saves file to GCS (/data/uploads/)
    ↓
 4. Create database record (status: processing)
    ↓
-5. PDFProcessor.process_pdf()
-   ├─→ extract_metadata() → Get title, author, pages
-   ├─→ extract_text() → Extract plain text
-   └─→ chunk_text() → Create paragraphs
+5. PDFProcessor.process_pdf_streaming()
+   ├─→ Extract metadata
+   └─→ Yield chunks progressively
    ↓
-6. EmbeddingService.generate_embeddings()
-   └─→ Batch process all chunks
+6. For each chunk batch:
+   ├─→ EmbeddingService.generate_embeddings()
+   └─→ VectorStore.add_documents_batch() → Vertex AI
    ↓
-7. VectorStore.add_documents()
-   └─→ Store in ChromaDB
+7. Store chunk content in SQLite
    ↓
-8. Update database record
-   ├─→ status: completed
-   ├─→ num_chunks: X
-   └─→ chunk_ids: [...]
+8. Update database record (status: completed)
    ↓
 9. Return success to frontend
 ```
@@ -481,366 +353,205 @@ CREATE TABLE documents (
 ### Search Workflow
 
 ```
-1. User enters query + selects mode (hybrid/semantic/keyword)
+1. User enters query + selects mode
    ↓
 2. Frontend → POST /api/v1/search/
    ↓
-3. Backend receives query + filters
+3. HybridSearchService.hybrid_search()
+   ├─→ Semantic: Generate query embedding
+   │   └─→ Vertex AI find_neighbors()
+   └─→ (BM25 disabled for Vertex AI)
    ↓
-4. HybridSearchService.hybrid_search()
-   ├─→ If hybrid: Run both searches
-   │   ├─→ Semantic: Generate embedding, ChromaDB search
-   │   └─→ Keyword: BM25 ranking
-   ├─→ If semantic: Only vector search
-   └─→ If keyword: Only BM25 search
+4. Retrieve chunk content from SQLite
    ↓
-5. Apply advanced filters
-   ├─→ Document ID filter
-   ├─→ Date range filter
-   └─→ Boolean operators (AND/NOT/OR)
+5. Apply metadata filters (document, date)
    ↓
-6. Reciprocal Rank Fusion (for hybrid)
-   └─→ Combine scores with weighted RRF
-   ↓
-7. Format results with metadata
-   ↓
-8. Return to frontend
-   ↓
-9. Display ranked results with scores
+6. Return ranked results with scores
 ```
 
 ### Chat Workflow
 
 ```
-1. User sends message (with optional context chunks)
+1. User sends message (with optional context)
    ↓
 2. Frontend → POST /api/v1/chat/
    ↓
 3. Backend ChatService orchestrates
    ↓
 4. If "Allow AI to search" enabled:
-   ├─→ Send to LLM with search tool definition
-   ├─→ LLM decides to search (or not)
-   ├─→ If search requested:
-   │   ├─→ Execute HybridSearchService.hybrid_search()
-   │   ├─→ Get relevant chunks
-   │   └─→ Re-send to LLM with context
-   └─→ LLM generates final response
+   ├─→ Call LLM Service with search tool
+   ├─→ LLM may request search
+   ├─→ Execute search, get chunks
+   └─→ Re-send to LLM with context
    ↓
-5. If context chunks provided:
-   ├─→ Inject chunks as context
-   └─→ LLM generates response
+5. Backend → LLM Service /api/v1/generate
    ↓
-6. Update conversation history
+6. LLM Service → Vertex AI Model Garden endpoint
    ↓
 7. Return response with sources
-   ↓
-8. Frontend displays message + context viewer
 ```
 
-### Delete Workflow
+### Event-Driven Processing (Optional)
 
 ```
-1. User clicks delete
+1. Upload PDF to GCS bucket
    ↓
-2. Frontend → DELETE /api/v1/documents/{id}
+2. Cloud Storage → Pub/Sub notification
    ↓
-3. Backend retrieves document record
+3. Pub/Sub → Cloud Run backend
+   POST /api/v1/documents/pubsub
    ↓
-4. VectorStore.delete_by_ids(chunk_ids)
-   └─→ Remove from ChromaDB
+4. Backend processes file from /data mount
    ↓
-5. Delete PDF file from /data/uploads/
-   ↓
-6. Delete database record
-   ↓
-7. Return success
+5. Document available in search & chat
 ```
 
-### File Watcher Workflow (Automated Processing)
+## Deployment
 
-```
-1. User/System drops PDF into /data/watch/ folder
-   ↓
-2. Watchdog detects file creation event
-   ↓
-3. Wait for file stability (no modifications for 5s)
-   └─→ Ensures upload is complete
-   ↓
-4. Check if file already processed (idempotency)
-   ↓
-5. Create FileEvent with GCS-compatible schema:
-   {
-     event_type: "OBJECT_FINALIZE",
-     file_path: "/data/watch/document.pdf",
-     file_name: "document.pdf",
-     bucket: "/data/watch",
-     event_id: "uuid-here"
-   }
-   ↓
-6. Publish event → Backend API
-   POST /api/v1/documents/process-file
-   ↓
-7. Backend processes PDF (same as upload):
-   ├─→ Extract text & metadata
-   ├─→ Chunk document
-   ├─→ Generate embeddings
-   └─→ Store in ChromaDB
-   ↓
-8. File tracker marks as processed
-   ↓
-9. Document available in search & chat
+### Cloud Build
+
+Each service has a `cloudbuild.yaml` for CI/CD:
+
+```bash
+# Build and deploy frontend
+cd frontend && gcloud builds submit
+
+# Build and deploy backend
+cd backend && gcloud builds submit
+
+# Build and deploy LLM service
+cd llm_service && gcloud builds submit
 ```
 
-**GCP Migration of This Workflow:**
-```
-1. User uploads PDF to GCS bucket
-   ↓
-2. Cloud Storage sends OBJECT_FINALIZE event to Pub/Sub
-   ↓
-3. Cloud Function receives Pub/Sub message
-   ↓
-4. Cloud Function calls Cloud Run backend
-   POST /api/v1/documents/process-file
-   ↓
-5. Backend downloads from GCS, processes, stores
-   ↓
-6. Document available in search & chat
+### Local Development
+
+Use `docker-compose.yml` for local development:
+
+```bash
+# Set environment variables
+export VERTEX_AI_PROJECT_ID=anb-gpt-prj
+export VERTEX_AI_LOCATION=me-central2
+export VERTEX_AI_LLM_ENDPOINT_ID=<your-endpoint>
+
+# Start services
+docker-compose up --build
 ```
 
-## Network Communication
+**Note:** Local development requires:
+- GCP credentials (`credentials.json`)
+- Vertex AI endpoints accessible
 
-```
-Docker Network: rag-network
-Type: Bridge
-
-Container Communication:
-- frontend:80 → backend:8000 (HTTP API)
-- backend → postgres:5432 (PostgreSQL)
-- backend → chromadb (Python client, local)
-- backend → llm:8001 (HTTP API for LLM service)
-- file_watcher → backend:8000 (Event notifications)
-
-External Access:
-- localhost:3000 → frontend:80
-- localhost:8000 → backend:8000
-- localhost:8002 → llm:8001 (LLM service)
-- localhost:5432 → postgres:5432 (optional)
-```
-
-## Storage Strategy
-
-### Volumes
-
-```yaml
-volumes:
-  - ./data/uploads:/data/uploads       # PDF files (UI uploads)
-  - ./data/watch:/data/watch           # PDF files (auto-processing)
-  - ./data/processed:/data/processed   # File tracking data
-  - ./data/chromadb:/data/chromadb     # Vector DB
-  - ./data/postgres:/var/lib/postgresql/data
-```
-
-### Data Persistence
-
-| Data Type | Location | Backup Strategy |
-|-----------|----------|----------------|
-| PDF Files (UI) | /data/uploads | File system backup |
-| PDF Files (Auto) | /data/watch | File system backup |
-| File Tracker | /data/processed | JSON file backup |
-| Embeddings | /data/chromadb | Directory backup |
-| Metadata | /data/postgres | pg_dump |
-
-## Security Considerations
+## Security
 
 ### Current Implementation
 
-- ✅ Non-root Docker users
-- ✅ CORS configuration
-- ✅ File type validation
-- ✅ File size limits
-- ✅ SQL injection protection (SQLAlchemy)
+- Cloud Run services with IAM authentication option
+- GCS bucket with IAM permissions
+- Vertex AI service account roles
+
+### Required IAM Roles
+
+**Cloud Run Service Account:**
+```
+roles/aiplatform.user           # Vertex AI access
+roles/storage.objectAdmin       # GCS access
+```
 
 ### Production Recommendations
 
-- 🔒 Add authentication (JWT)
-- 🔒 Enable HTTPS
-- 🔒 Rate limiting
-- 🔒 Input sanitization
-- 🔒 Secrets management
-- 🔒 Network isolation
-- 🔒 Regular updates
+- Enable Cloud Run authentication
+- Use Secret Manager for sensitive config
+- Enable VPC connector for private networking
+- Configure Cloud Armor for DDoS protection
+- Enable audit logging
 
-## Performance Characteristics
+## Performance
 
-### Bottlenecks
+### Current Configuration
 
-1. **PDF Processing**: I/O bound (disk read)
-2. **Embedding Generation**: CPU bound
-3. **Vector Search**: Memory + CPU bound
+| Service | Memory | CPU | Min | Max |
+|---------|--------|-----|-----|-----|
+| Frontend | 512Mi | 1 | 0 | 5 |
+| Backend | 4Gi | 2 | 0 | 10 |
+| LLM | 2Gi | 2 | 0 | 5 |
 
-### Optimization Strategies
+### Scaling Considerations
 
-**Current:**
-- Batch embedding generation (32 per batch)
-- Persistent connections (connection pooling)
-- Efficient chunking algorithm
-
-**Future:**
-- Add GPU support for embeddings
-- Implement caching layer (Redis)
-- Use async database queries
-- Add task queue (Celery)
-- Horizontal scaling
+- **Cold starts:** Set min-instances=1 for production
+- **Embedding generation:** CPU-bound, consider GPU for higher throughput
+- **Vector search:** Scales with Vertex AI infrastructure
 
 ### Estimated Performance
 
-| Operation | Time | Throughput |
-|-----------|------|------------|
-| Upload 10-page PDF | ~5s | - |
-| Generate embeddings (100 chunks) | ~10s | 10 chunks/s |
-| Search query | <100ms | 10+ QPS |
-| Delete document | ~500ms | - |
+| Operation | Time |
+|-----------|------|
+| Upload 10-page PDF | ~5-10s |
+| Generate embeddings (100 chunks) | ~10s |
+| Vector search query | <200ms |
+| LLM generation | 1-5s |
 
-## Scalability
+## Cost Optimization
 
-### Horizontal Scaling Options
+### Cloud Run
+- Scale to zero when idle
+- Use committed use discounts for sustained workloads
 
-```
-Current: Monolithic Backend
-Future Options:
-├── Load Balancer
-├── Multiple Backend Instances
-├── Separate Worker Service
-├── Redis Task Queue
-└── Distributed ChromaDB
-```
+### Vertex AI Vector Search
+- Pay per query and storage
+- Use appropriate machine type for endpoints
 
-### Resource Requirements
+### Vertex AI Model Garden
+- Pay per prediction
+- Consider smaller models (7B vs 70B) for cost savings
 
-**Minimum:**
-- 2 CPU cores
-- 4GB RAM
-- 10GB disk
+## Monitoring
 
-**Recommended:**
-- 4+ CPU cores
-- 8GB RAM
-- 50GB SSD
-
-**For 10,000 Documents:**
-- 8+ CPU cores
-- 16GB RAM
-- 100GB SSD
-
-## Monitoring & Observability
-
-### Logs
-
+### Cloud Logging
 ```bash
-# Application logs
-docker-compose logs -f backend
-
-# Database logs
-docker-compose logs -f postgres
-
-# All logs
-docker-compose logs -f
+# View backend logs
+gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=rag-backend"
 ```
-
-### Metrics
-
-Available via API:
-- `/api/v1/documents/stats/overview`
-  - Total documents
-  - Total chunks
-  - Vector store count
 
 ### Health Checks
+- Frontend: `https://rag-frontend-xxx.run.app`
+- Backend: `https://rag-backend-xxx.run.app/health`
+- LLM: `https://rag-llm-xxx.run.app/api/v1/health`
 
-- Frontend: `http://localhost:3000`
-- Backend: `http://localhost:8000/health`
-- Postgres: Built-in healthcheck
-
-## Technology Choices
-
-### Why These Technologies?
-
-**FastAPI:**
-- ✅ Fast (ASGI)
-- ✅ Async support
-- ✅ Auto-generated docs
-- ✅ Type hints
-- ✅ Easy to learn
-
-**React:**
-- ✅ Component-based
-- ✅ Rich ecosystem
-- ✅ Fast rendering
-- ✅ Easy state management
-
-**ChromaDB:**
-- ✅ Purpose-built for embeddings
-- ✅ Simple API
-- ✅ No external dependencies
-- ✅ Good performance
-
-**PostgreSQL:**
-- ✅ Reliable
-- ✅ JSON support
-- ✅ ACID compliant
-- ✅ Well-documented
-
-**Docker:**
-- ✅ Consistent environments
-- ✅ Easy deployment
-- ✅ Service isolation
-- ✅ Resource control
+### Metrics
+- Cloud Run metrics in GCP Console
+- Custom metrics via `/api/v1/documents/stats/overview`
 
 ## Future Enhancements
 
-### Planned Features
+### Planned
 
-1. **Authentication & Authorization**
-   - User accounts
-   - Document permissions
-   - API keys
+1. **Cloud SQL Migration**
+   - Move from SQLite to PostgreSQL
+   - Better concurrent access
 
-2. **Additional LLM Providers**
-   - OpenAI GPT-4
-   - Anthropic Claude
-   - Local models (Ollama)
-   - Cost optimization
+2. **BM25 Re-enablement**
+   - Store chunk content for keyword search
+   - True hybrid search capability
 
-3. **Enhanced Chat Features**
-   - Streaming responses
-   - Chat history persistence
-   - Custom system prompts
-   - Multi-turn reasoning
+3. **GPU Support**
+   - Faster embedding generation
+   - Cloud Run GPU (when available in region)
 
-4. **File Type Support**
-   - DOCX, TXT, HTML
-   - Image OCR
-   - Audio transcription
+4. **Authentication**
+   - Cloud Identity-Aware Proxy (IAP)
+   - User accounts and permissions
 
-5. **Analytics**
-   - Usage statistics
-   - Popular searches
-   - Document insights
-   - Token usage tracking
+5. **Additional Models**
+   - Support multiple LLM endpoints
+   - Model selection per query
 
-6. **Collaboration**
-   - Shared knowledge bases
-   - Team workspaces
-   - Comments & annotations
-
-7. **Performance**
-   - GPU support for embeddings
-   - Response caching
-   - Async processing queue
-   - Horizontal scaling
+6. **Caching**
+   - Memorystore (Redis) for embeddings cache
+   - Query result caching
 
 ---
 
-**Designed for**: Scalability, maintainability, and production readiness
-**Built with**: Modern best practices and clean architecture principles
+**Deployed on:** Google Cloud Platform
+**Architecture:** Microservices on Cloud Run
+**Vector DB:** Vertex AI Vector Search
+**LLM:** Vertex AI Model Garden (Open Source Models)

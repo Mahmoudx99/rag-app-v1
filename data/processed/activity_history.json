@@ -1,4 +1,56 @@
 {
-  "activities": [],
-  "last_updated": "2025-11-19T13:37:32.219768"
+  "activities": [
+    {
+      "event_id": "a99df299-f9e2-4b7c-850b-1393ec8d8e0c",
+      "filename": "Kirchhoff's_circuit_laws.pdf",
+      "file_size": 284218,
+      "status": "failed",
+      "started_at": "2025-11-23T13:32:12.160791",
+      "completed_at": "2025-11-23T13:32:20.197698",
+      "document_id": null,
+      "num_chunks": 0,
+      "error_message": "Could not connect to a Chroma server. Are you sure it is running?",
+      "chunks_processed": 0,
+      "chunks_estimated": null,
+      "progress_percent": null,
+      "elapsed_seconds": 0.0,
+      "processing_rate": null,
+      "estimated_remaining_seconds": null
+    },
+    {
+      "event_id": "179fd2b0-b5a0-41e1-9868-91a45790aa05",
+      "filename": "Mesh_analysis.pdf",
+      "file_size": 232717,
+      "status": "failed",
+      "started_at": "2025-11-23T13:32:12.141753",
+      "completed_at": "2025-11-23T13:32:20.187480",
+      "document_id": null,
+      "num_chunks": 0,
+      "error_message": "Could not connect to a Chroma server. Are you sure it is running?",
+      "chunks_processed": 0,
+      "chunks_estimated": null,
+      "progress_percent": null,
+      "elapsed_seconds": 0.0,
+      "processing_rate": null,
+      "estimated_remaining_seconds": null
+    },
+    {
+      "event_id": "0c8b4f7d-cfdc-49a8-8dd9-7215df69fe0e",
+      "filename": "Resistor.pdf",
+      "file_size": 1015966,
+      "status": "failed",
+      "started_at": "2025-11-23T13:32:12.122928",
+      "completed_at": "2025-11-23T13:32:20.171858",
+      "document_id": null,
+      "num_chunks": 0,
+      "error_message": "Could not connect to a Chroma server. Are you sure it is running?",
+      "chunks_processed": 0,
+      "chunks_estimated": null,
+      "progress_percent": null,
+      "elapsed_seconds": 0.0,
+      "processing_rate": null,
+      "estimated_remaining_seconds": null
+    }
+  ],
+  "last_updated": "2025-11-23T13:32:20.197859"
 }

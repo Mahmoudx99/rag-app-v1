@@ -1,15 +1,4 @@
 services:
-  # ChromaDB Vector Database
-  chromadb:
-    image: chromadb/chroma:latest
-    container_name: rag_chromadb
-    volumes:
-      - chromadb-data:/data
-    ports:
-      - "8001:8000"
-    networks:
-      - rag-network
-
   # LLM Service
   llm:
     build:
@@ -17,11 +6,16 @@ services:
       dockerfile: Dockerfile
     container_name: rag_llm
     environment:
-      - LLM_PROVIDER=gemini
-      - LLM_API_KEY=${LLM_API_KEY:-your_api_key_here}
-      - LLM_MODEL=gemini-2.0-flash
+      - LLM_PROVIDER=vertex_ai
+      - LLM_MODEL=llama-3.1-8b
       - LLM_MAX_TOKENS=4096
       - LLM_TEMPERATURE=0.7
+      - VERTEX_AI_PROJECT_ID=${VERTEX_AI_PROJECT_ID:-anb-gpt-prj}
+      - VERTEX_AI_LOCATION=${VERTEX_AI_LOCATION:-me-central2}
+      - VERTEX_AI_LLM_ENDPOINT_ID=${VERTEX_AI_LLM_ENDPOINT_ID:-your_endpoint_id}
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
+    volumes:
+      - ${GOOGLE_APPLICATION_CREDENTIALS:-./credentials.json}:/app/credentials.json:ro
     ports:
       - "8002:8001"
     networks:
@@ -36,10 +30,14 @@ services:
     container_name: rag_backend
     environment:
       - DATABASE_URL=sqlite:////data/rag_app.db
-      - CHROMA_HOST=chromadb
-      - CHROMA_PORT=8000
       - WATCH_DIR=/data/watch
       - LLM_SERVICE_URL=http://llm:8001
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID:-anb-gpt-prj}
+      - GCP_REGION=${GCP_REGION:-me-central2}
+      - VERTEX_AI_INDEX_ENDPOINT_ID=${VERTEX_AI_INDEX_ENDPOINT_ID}
+      - VERTEX_AI_DEPLOYED_INDEX_ID=${VERTEX_AI_DEPLOYED_INDEX_ID}
+      - VERTEX_AI_INDEX_ID=${VERTEX_AI_INDEX_ID}
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
     volumes:
       # Universal document storage location
       - ./data/watch:/data/watch
@@ -47,11 +45,11 @@ services:
       - ./data/processed:/data/processed
       # Mount parent data directory for SQLite database
       - ./data:/data
+      # GCP credentials for Vertex AI
+      - ${GOOGLE_APPLICATION_CREDENTIALS:-./credentials.json}:/app/credentials.json:ro
     ports:
       - "8000:8000"
     depends_on:
-      chromadb:
-        condition: service_started
       llm:
         condition: service_started
     networks:
@@ -119,6 +117,3 @@ services:
 networks:
   rag-network:
     driver: bridge
-
-volumes:
-  chromadb-data:

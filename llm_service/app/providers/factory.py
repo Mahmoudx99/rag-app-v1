@@ -3,7 +3,7 @@ Factory pattern for LLM providers
 """
 import logging
 from .base import BaseLLMProvider
-from .gemini import GeminiProvider
+from .vertex_ai import VertexAIProvider
 
 logger = logging.getLogger(__name__)
 
@@ -22,11 +22,10 @@ def get_llm_provider(settings) -> BaseLLMProvider:
         ValueError: If provider is not supported
     """
     providers = {
-        "gemini": GeminiProvider,
+        "vertex_ai": VertexAIProvider,
         # Future providers can be added here:
         # "openai": OpenAIProvider,
         # "ollama": OllamaProvider,
-        # "anthropic": AnthropicProvider,
     }
 
     provider_name = settings.LLM_PROVIDER.lower()
