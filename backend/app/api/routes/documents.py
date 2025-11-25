@@ -837,9 +837,15 @@ async def handle_gcs_cloudevent(
         # Parse CloudEvents format
         event = await request.json()
 
+        # Debug: Log the entire event structure
+        print(f"[GCS-EVENT] ========== NEW EVENT ==========")
+        print(f"[GCS-EVENT] Full CloudEvent: {json.dumps(event, indent=2)}")
+
         # Validate event type
         event_type = event.get('type', '')
+        print(f"[GCS-EVENT] Event type: {event_type}")
         if event_type != 'google.cloud.storage.object.v1.finalized':
+            print(f"[GCS-EVENT] ❌ Ignoring unsupported event type: {event_type}")
             return {
                 "status": "ignored",
                 "reason": f"Unsupported event type: {event_type}"
@@ -851,29 +857,47 @@ async def handle_gcs_cloudevent(
         object_name = data.get('name', '')  # e.g., "document.pdf"
         file_size = int(data.get('size', 0))
 
+        print(f"[GCS-EVENT] Bucket: {bucket_name}")
+        print(f"[GCS-EVENT] Object: {object_name}")
+        print(f"[GCS-EVENT] Size: {file_size}")
+
         # Validate bucket (should be gcs-rag-watch-bucket)
         if bucket_name != 'gcs-rag-watch-bucket':
+            print(f"[GCS-EVENT] ❌ Ignoring wrong bucket: {bucket_name} (expected: gcs-rag-watch-bucket)")
             return {"status": "ignored", "reason": f"Unexpected bucket: {bucket_name}"}
 
         # Only process PDF files
         if not object_name.lower().endswith('.pdf'):
+            print(f"[GCS-EVENT] ❌ Ignoring non-PDF file: {object_name}")
             return {"status": "ignored", "reason": "Not a PDF file"}
 
         # Extract just the filename
         file_name = os.path.basename(object_name)
+        print(f"[GCS-EVENT] Extracted filename: {file_name}")
 
         # Build the local file path (watch bucket is mounted at /watch)
         file_path = f"/watch/{object_name}"
+        print(f"[GCS-EVENT] Looking for file at: {file_path}")
 
         # Check if file exists (GCS mount)
         if not os.path.exists(file_path):
+            print(f"[GCS-EVENT] ❌ File not found at: {file_path}")
+            print(f"[GCS-EVENT] Directory listing /watch:")
+            try:
+                watch_files = os.listdir("/watch")
+                print(f"[GCS-EVENT] Files in /watch: {watch_files[:10]}")  # Show first 10
+            except Exception as e:
+                print(f"[GCS-EVENT] Error listing /watch: {e}")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"File not found at mount path: {file_path}"
             )
 
+        print(f"[GCS-EVENT] ✓ File exists at: {file_path}")
+
         # Get actual file size from filesystem
         actual_size = os.path.getsize(file_path)
+        print(f"[GCS-EVENT] Actual file size: {actual_size}")
 
         # Check if already processed
         existing = db.query(Document).filter(
@@ -882,14 +906,18 @@ async def handle_gcs_cloudevent(
         ).first()
 
         if existing:
+            print(f"[GCS-EVENT] ⚠️ Already processed: document_id={existing.id}, filename={file_name}")
             return {
                 "status": "already_processed",
                 "document_id": existing.id,
                 "filename": file_name
             }
 
+        print(f"[GCS-EVENT] ✓ File is new, proceeding with processing")
+
         # Validate file size
         if actual_size > settings.MAX_UPLOAD_SIZE:
+            print(f"[GCS-EVENT] ❌ File too large: {actual_size} > {settings.MAX_UPLOAD_SIZE}")
             return {
                 "status": "rejected",
                 "reason": f"File too large. Maximum size is {settings.MAX_UPLOAD_SIZE / 1024 / 1024}MB"
@@ -897,6 +925,7 @@ async def handle_gcs_cloudevent(
 
         # Generate event ID from CloudEvents ID
         event_id = event.get('id', str(uuid.uuid4()))
+        print(f"[GCS-EVENT] Event ID: {event_id}")
 
         # Track activity for UI
         activity_record = {
@@ -921,6 +950,8 @@ async def handle_gcs_cloudevent(
             _watcher_activity.pop()
         _save_activity_history()
 
+        print(f"[GCS-EVENT] ✓ Added to watcher activity")
+
         # Schedule processing in background
         background_tasks.add_task(
             _process_file_background,
@@ -931,6 +962,9 @@ async def handle_gcs_cloudevent(
             activity_record
         )
 
+        print(f"[GCS-EVENT] ✓ Scheduled background processing")
+        print(f"[GCS-EVENT] ========== PROCESSING QUEUED ==========")
+
         return {
             "status": "processing",
             "filename": file_name,
@@ -939,11 +973,15 @@ async def handle_gcs_cloudevent(
         }
 
     except json.JSONDecodeError as e:
+        print(f"[GCS-EVENT] ❌ JSON decode error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid JSON in CloudEvent: {str(e)}"
         )
     except Exception as e:
+        print(f"[GCS-EVENT] ❌ Unexpected error: {str(e)}")
+        import traceback
+        print(f"[GCS-EVENT] Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error processing CloudEvent: {str(e)}"
