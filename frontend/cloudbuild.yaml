@@ -3,6 +3,7 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args: [
       'build',
+      '--no-cache',
       '-t',
       'me-central2-docker.pkg.dev/anb-gpt-prj/cloud-run-source-deploy/rag-frontend:latest',
       '--build-arg',
