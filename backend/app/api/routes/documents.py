@@ -825,11 +825,12 @@ async def handle_gcs_cloudevent(
     db: Session = Depends(get_db)
 ):
     """
-    Handle CloudEvents from Eventarc triggered by Cloud Storage.
+    Handle GCS events from Eventarc triggered by Cloud Storage.
 
-    This endpoint receives direct Cloud Storage events via Eventarc when
-    files are uploaded to the GCS bucket. The event format is CloudEvents,
-    which is simpler than Pub/Sub format.
+    This endpoint receives Cloud Storage events via Eventarc when
+    files are uploaded to the GCS bucket. Supports both:
+    - GCS Notification format (direct object metadata)
+    - CloudEvents format (with type and data wrapper)
 
     Event type: google.cloud.storage.object.v1.finalized
     """
@@ -840,27 +841,37 @@ async def handle_gcs_cloudevent(
         # Debug: Log the entire event structure
         print(f"[GCS-EVENT] ========== NEW EVENT ==========")
         print(f"[GCS-EVENT] Event keys: {list(event.keys())}")
-        print(f"[GCS-EVENT] Event type field: {event.get('type', 'NOT_FOUND')}")
-        print(f"[GCS-EVENT] Event eventType field: {event.get('eventType', 'NOT_FOUND')}")
-        print(f"[GCS-EVENT] Event source: {event.get('source', 'NOT_FOUND')}")
-        print(f"[GCS-EVENT] Event subject: {event.get('subject', 'NOT_FOUND')}")
-        print(f"[GCS-EVENT] Event data keys: {list(event.get('data', {}).keys())}")
 
-        # Validate event type
-        event_type = event.get('type', '')
-        print(f"[GCS-EVENT] Event type: {event_type}")
-        if event_type != 'google.cloud.storage.object.v1.finalized':
-            print(f"[GCS-EVENT] ❌ Ignoring unsupported event type: {event_type}")
+        # Handle both CloudEvents format and GCS notification format
+        # GCS notification format has 'kind', 'bucket', 'name' at root level
+        # CloudEvents format has 'type', 'data' with nested 'bucket', 'name'
+
+        if 'kind' in event and event.get('kind') == 'storage#object':
+            # GCS Notification format (direct object metadata)
+            print(f"[GCS-EVENT] Format: GCS Notification (direct)")
+            bucket_name = event.get('bucket', '')
+            object_name = event.get('name', '')
+            file_size = int(event.get('size', 0))
+        elif 'type' in event:
+            # CloudEvents format
+            print(f"[GCS-EVENT] Format: CloudEvents")
+            event_type = event.get('type', '')
+            if event_type != 'google.cloud.storage.object.v1.finalized':
+                print(f"[GCS-EVENT] ❌ Ignoring unsupported event type: {event_type}")
+                return {
+                    "status": "ignored",
+                    "reason": f"Unsupported event type: {event_type}"
+                }
+            data = event.get('data', {})
+            bucket_name = data.get('bucket', '')
+            object_name = data.get('name', '')
+            file_size = int(data.get('size', 0))
+        else:
+            print(f"[GCS-EVENT] ❌ Unknown event format")
             return {
                 "status": "ignored",
-                "reason": f"Unsupported event type: {event_type}"
+                "reason": "Unknown event format"
             }
-
-        # Extract data from CloudEvents
-        data = event.get('data', {})
-        bucket_name = data.get('bucket', '')
-        object_name = data.get('name', '')  # e.g., "document.pdf"
-        file_size = int(data.get('size', 0))
 
         print(f"[GCS-EVENT] Bucket: {bucket_name}")
         print(f"[GCS-EVENT] Object: {object_name}")
