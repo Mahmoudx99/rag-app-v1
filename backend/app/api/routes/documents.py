@@ -224,17 +224,16 @@ _load_activity_history()
 @router.post("/upload", response_model=UploadResponse, status_code=status.HTTP_202_ACCEPTED)
 async def upload_document(
     file: UploadFile = File(...),
-    background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db)
 ):
     """
-    Upload a PDF document and trigger processing.
+    Upload a PDF document to the watch bucket.
 
     This endpoint:
-    - Saves the file to storage
-    - Triggers background processing immediately
-    - Returns quickly to the user
-    - Processing happens asynchronously
+    - Saves the file to gcs-rag-watch-bucket (mounted at /watch)
+    - Returns immediately
+    - Eventarc triggers processing automatically when file is saved
+    - Processing happens via CloudEvents (/api/v1/documents/gcs-event)
 
     To check processing status, use:
     - GET /api/v1/documents/watcher/activity
@@ -255,60 +254,28 @@ async def upload_document(
     # Generate unique filename to avoid conflicts
     file_id = str(uuid.uuid4())
     filename = f"{file_id}_{file.filename}"
-    file_path = os.path.join(settings.WATCH_DIR, filename)
+
+    # Save to watch bucket (which triggers Eventarc)
+    watch_bucket_path = "/watch"
+    file_path = os.path.join(watch_bucket_path, filename)
 
     # Ensure watch directory exists
-    os.makedirs(settings.WATCH_DIR, exist_ok=True)
+    os.makedirs(watch_bucket_path, exist_ok=True)
 
     try:
-        # Save file to storage
+        # Save file to watch bucket
+        # This will automatically trigger Eventarc → /api/v1/documents/gcs-event
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
         file_size = os.path.getsize(file_path)
 
-        # Generate event ID for tracking
-        event_id = f"upload_{file_id}"
-
-        # Track activity for UI
-        activity_record = {
-            "event_id": event_id,
-            "filename": file.filename,
-            "file_size": file_size,
-            "status": "processing",
-            "started_at": datetime.utcnow(),
-            "completed_at": None,
-            "document_id": None,
-            "num_chunks": 0,
-            "error_message": None,
-            "chunks_processed": 0,
-            "chunks_estimated": None,
-            "progress_percent": None,
-            "elapsed_seconds": 0.0,
-            "processing_rate": None,
-            "estimated_remaining_seconds": None
-        }
-        _watcher_activity.insert(0, activity_record)
-        if len(_watcher_activity) > _MAX_ACTIVITY_HISTORY:
-            _watcher_activity.pop()
-        _save_activity_history()
-
-        # Schedule processing in background
-        background_tasks.add_task(
-            _process_file_background,
-            event_id,
-            file.filename,
-            file_path,
-            file_size,
-            activity_record
-        )
-
         return UploadResponse(
             success=True,
-            document_id=None,  # Will be assigned during processing
+            document_id=None,  # Will be assigned by Eventarc processing
             filename=file.filename,
             num_chunks=0,  # Not yet processed
-            message=f"File uploaded successfully. Processing started. Check activity for status."
+            message=f"File uploaded to watch bucket. Eventarc will trigger processing automatically. Check activity for status."
         )
 
     except Exception as e:
