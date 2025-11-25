@@ -169,16 +169,6 @@ function App() {
                   <span className="stat-label">Chunks</span>
                 </div>
               </div>
-
-              <div className="stat">
-                <span className="stat-icon">
-                  <img src="/nn.svg" alt="Neural Network" width="80" height="80" />
-                </span>
-                <div className="stat-content">
-                  <span className="stat-value">{stats.vector_store.count}</span>
-                  <span className="stat-label">Embeddings</span>
-                </div>
-              </div>
             </div>
           )}
         </div>
