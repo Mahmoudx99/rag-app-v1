@@ -1,15 +1,16 @@
 """
 Search API routes - Semantic search across documents
 """
-from typing import List, Optional, Literal
+from typing import List, Optional
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from ...services.embedding_service import EmbeddingService
 from ...services.vector_store import VectorStore
-from ...services.hybrid_search import HybridSearchService
 from ...core.config import get_settings
+from ...core.database import SessionLocal
+from ...models.document import Chunk
 
 router = APIRouter()
 settings = get_settings()
@@ -17,12 +18,11 @@ settings = get_settings()
 # Services will be initialized on first use
 embedding_service = None
 vector_store = None
-hybrid_search_service = None
 
 
 def get_services():
     """Get service instances"""
-    global embedding_service, vector_store, hybrid_search_service
+    global embedding_service, vector_store
 
     if embedding_service is None:
         embedding_service = EmbeddingService(
@@ -39,13 +39,7 @@ def get_services():
             index_id=settings.VERTEX_AI_INDEX_ID
         )
 
-    if hybrid_search_service is None:
-        hybrid_search_service = HybridSearchService(
-            vector_store=vector_store,
-            embedding_service=embedding_service
-        )
-
-    return embedding_service, vector_store, hybrid_search_service
+    return embedding_service, vector_store
 
 
 # Request/Response models
@@ -54,8 +48,6 @@ class SearchRequest(BaseModel):
     top_k: int = 5
     document_id: Optional[int] = None
     document_ids: Optional[List[int]] = None  # Multiple document filtering
-    search_mode: Literal["hybrid", "semantic", "keyword"] = "hybrid"
-    semantic_weight: float = Field(default=0.7, ge=0.0, le=1.0)
     # Date filters
     date_from: Optional[datetime] = None
     date_to: Optional[datetime] = None
@@ -69,8 +61,6 @@ class SearchResult(BaseModel):
     chunk_id: str
     content: str
     score: float
-    semantic_score: float = 0.0
-    keyword_score: float = 0.0
     metadata: dict
 
 
@@ -78,7 +68,6 @@ class SearchResponse(BaseModel):
     query: str
     results: List[SearchResult]
     total_results: int
-    search_mode: str = "hybrid"
     filters_applied: dict = {}
 
 
@@ -113,13 +102,11 @@ def apply_boolean_filters(results: List[SearchResult], request: SearchRequest) -
 @router.post("/", response_model=SearchResponse)
 async def search(request: SearchRequest):
     """
-    Perform advanced hybrid search across all documents
+    Perform semantic (vector) search across all documents
 
-    - Supports three modes: hybrid (default), semantic, or keyword
-    - Hybrid mode combines semantic (vector) and keyword (BM25) search using RRF
-    - semantic_weight controls the balance (0.5 = balanced, 1.0 = pure semantic, 0.0 = pure keyword)
+    - Uses vector similarity search for semantic understanding
     - Filter by document IDs, date range, and boolean operators
-    - Returns top K most relevant chunks with both semantic and keyword scores
+    - Returns top K most relevant chunks with similarity scores
     """
     if not request.query.strip():
         raise HTTPException(
@@ -135,39 +122,67 @@ async def search(request: SearchRequest):
 
     try:
         # Get services
-        embed_svc, vec_store, hybrid_svc = get_services()
+        embed_svc, vec_store = get_services()
 
         # Determine document filter
-        doc_filter = None
+        where_filter = None
         if request.document_ids and len(request.document_ids) > 0:
-            doc_filter = request.document_ids
+            where_filter = {"document_id": {"$in": request.document_ids}}
         elif request.document_id:
-            doc_filter = request.document_id
+            where_filter = {"document_id": request.document_id}
 
         # Fetch more results to account for filtering
         fetch_multiplier = 3 if (request.must_include or request.must_exclude or request.any_of) else 1
         fetch_k = min(request.top_k * fetch_multiplier, 50)
 
-        # Perform hybrid search
-        search_results = hybrid_svc.hybrid_search(
-            query=request.query,
+        # Generate query embedding
+        query_embedding = embed_svc.generate_embedding(request.query)
+
+        # Perform vector search
+        search_results = vec_store.search(
+            query_embedding=query_embedding,
             n_results=fetch_k,
-            document_id=doc_filter if isinstance(doc_filter, int) else None,
-            document_ids=doc_filter if isinstance(doc_filter, list) else None,
-            semantic_weight=request.semantic_weight,
-            search_mode=request.search_mode
+            where=where_filter
         )
+
+        # Convert distances to similarity scores (1 - distance for cosine)
+        scores = [1 - d for d in search_results["distances"]]
+
+        # Retrieve chunk content from database
+        chunk_ids = search_results["ids"]
+        documents = []
+        metadatas = []
+
+        if chunk_ids:
+            db = SessionLocal()
+            try:
+                # Get chunks from database by their IDs
+                db_chunks = db.query(Chunk).filter(Chunk.chunk_id.in_(chunk_ids)).all()
+
+                # Create a map for quick lookup
+                chunk_map = {c.chunk_id: c for c in db_chunks}
+
+                # Maintain order from search results
+                for chunk_id in chunk_ids:
+                    if chunk_id in chunk_map:
+                        chunk = chunk_map[chunk_id]
+                        documents.append(chunk.content)
+                        metadatas.append(chunk.chunk_metadata or {})
+                    else:
+                        # Chunk not found in DB - use placeholder
+                        documents.append("")
+                        metadatas.append({})
+            finally:
+                db.close()
 
         # Format results
         results = []
-        for i in range(len(search_results["ids"])):
+        for i in range(len(chunk_ids)):
             results.append(SearchResult(
-                chunk_id=search_results["ids"][i],
-                content=search_results["documents"][i],
-                score=search_results["scores"][i],
-                semantic_score=search_results["semantic_scores"][i],
-                keyword_score=search_results["keyword_scores"][i],
-                metadata=search_results["metadatas"][i]
+                chunk_id=chunk_ids[i],
+                content=documents[i],
+                score=scores[i],
+                metadata=metadatas[i]
             ))
 
         # Apply boolean filters
@@ -195,7 +210,6 @@ async def search(request: SearchRequest):
             query=request.query,
             results=results,
             total_results=len(results),
-            search_mode=search_results.get("search_mode", request.search_mode),
             filters_applied=filters_applied
         )
 

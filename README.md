@@ -11,14 +11,14 @@ A modern, production-ready **Retrieval-Augmented Generation (RAG)** web applicat
 ## ✨ Features
 
 - **📄 PDF Upload & Processing** - Drag & drop PDF files for automatic text extraction
-- **🔍 Hybrid Search** - Combine semantic + keyword search with advanced filters
+- **🔍 Semantic Search** - Vector-based search with advanced filters
 - **🤖 AI Chat Integration** - Chat with Gemini 2.0 Flash using your documents as context
 - **🧠 Autonomous AI Search** - AI can autonomously search your knowledge base
 - **📊 Incremental Knowledge Base** - Knowledge base grows with each document
 - **🎯 Context Selection** - Select specific chunks as context for AI responses
 - **👁️ Context Viewer** - See exactly what context the AI uses to answer
 - **🗑️ Document Management** - Easy deletion of documents and their embeddings
-- **💾 Persistent Storage** - PostgreSQL + ChromaDB for reliable data storage
+- **💾 Persistent Storage** - PostgreSQL + Vertex AI for reliable data storage
 - **🐳 Docker-ized** - Complete containerized microservices architecture
 - **🎨 Modern UI** - Clean, responsive React interface with tabs
 - **⚡ Fast** - Optimized paragraph chunking and batch embedding generation
@@ -35,14 +35,14 @@ A modern, production-ready **Retrieval-Augmented Generation (RAG)** web applicat
 ┌─────────────────────────────────────────────────────────────┐
 │                    Backend API (FastAPI)                     │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐      │
-│  │   PDF    │ │ Embedding│ │  Hybrid  │ │   Chat   │      │
+│  │   PDF    │ │ Embedding│ │ Semantic │ │   Chat   │      │
 │  │ Processor│ │  Service │ │  Search  │ │ Service  │      │
 │  └──────────┘ └──────────┘ └──────────┘ └──────────┘      │
 └────────┬──────────┬─────────────┬───────────┬──────────────┘
          │          │             │           │
          ↓          ↓             ↓           ↓
 ┌──────────────┐ ┌─────────┐ ┌─────────┐ ┌─────────────────┐
-│  PostgreSQL  │ │  File   │ │ ChromaDB│ │   LLM Service   │
+│  PostgreSQL  │ │  File   │ │Vertex AI│ │   LLM Service   │
 │  (Metadata)  │ │ Storage │ │(Vectors)│ │ (Gemini 2.0)    │
 └──────────────┘ └─────────┘ └─────────┘ └─────────────────┘
 ```
@@ -52,7 +52,7 @@ A modern, production-ready **Retrieval-Augmented Generation (RAG)** web applicat
 1. **Frontend (React + Nginx)**
    - Modern, responsive UI with tabs (Search/Chat/Documents)
    - File upload with progress tracking
-   - Hybrid search interface with mode selection
+   - Semantic search interface
    - Advanced search filters (date, document, boolean)
    - AI chat interface with context viewer
    - Chunk selection for RAG context
@@ -62,7 +62,7 @@ A modern, production-ready **Retrieval-Augmented Generation (RAG)** web applicat
    - PDF text extraction (plain mode only)
    - Paragraph-based chunking
    - Embedding generation (sentence-transformers)
-   - Hybrid search (semantic + keyword with BM25)
+   - Semantic search via Vertex AI vector store
    - Chat orchestration with LLM service
    - Vector storage management
 
@@ -78,10 +78,10 @@ A modern, production-ready **Retrieval-Augmented Generation (RAG)** web applicat
    - Tracking upload history
    - Status management
 
-5. **ChromaDB**
+5. **Vertex AI Vector Store**
    - Vector embeddings storage
    - Efficient similarity search
-   - Persistent storage
+   - Scalable cloud infrastructure
 
 ## 🚀 Quick Start
 
@@ -122,12 +122,11 @@ A modern, production-ready **Retrieval-Augmented Generation (RAG)** web applicat
 2. Go to **Documents** tab and upload a PDF (drag & drop)
 3. Wait for processing to complete
 4. Switch to **Search** tab
-5. Select search mode (Hybrid/Semantic/Keyword)
-6. Enter a natural language query
-7. View ranked results with scores
-8. **Select chunks** by clicking checkboxes
-9. Click **"Chat with Selected"** to use them as AI context
-10. Or go to **Chat** tab and enable "Allow AI to search" for autonomous search!
+5. Enter a natural language query
+6. View ranked results with scores
+7. **Select chunks** by clicking checkboxes
+8. Click **"Chat with Selected"** to use them as AI context
+9. Or go to **Chat** tab and enable "Allow AI to search" for autonomous search!
 
 ## 📖 Usage
 
@@ -144,22 +143,16 @@ A modern, production-ready **Retrieval-Augmented Generation (RAG)** web applicat
 ### Searching
 
 1. Go to the **Search** tab
-2. Select search mode:
-   - **Hybrid**: Combines semantic + keyword (recommended)
-   - **Semantic**: Pure vector similarity
-   - **Keyword**: BM25 text matching
-3. Adjust semantic weight slider (for hybrid mode)
-4. Use **Advanced Search** for filters:
+2. Use **Advanced Search** for filters:
    - Filter by specific documents
    - Date range filtering
    - Boolean operators (AND/NOT/OR terms)
-5. Enter your query in natural language
-6. View ranked results with:
-   - Combined scores
-   - Semantic and keyword score breakdown
+3. Enter your query in natural language
+4. View ranked results with:
+   - Similarity scores
    - Source documents and page numbers
-7. **Select chunks** for AI context by clicking checkboxes
-8. Click **"Chat with Selected"** button to start chatting
+5. **Select chunks** for AI context by clicking checkboxes
+6. Click **"Chat with Selected"** button to start chatting
 
 ### AI Chat
 
@@ -236,7 +229,7 @@ rag_app/
 │   ├── app/
 │   │   ├── api/routes/
 │   │   │   ├── documents.py      # Upload, list, delete
-│   │   │   ├── search.py         # Hybrid search
+│   │   │   ├── search.py         # Semantic search
 │   │   │   └── chat.py           # AI chat orchestration
 │   │   ├── core/
 │   │   │   ├── config.py         # Configuration
@@ -246,8 +239,7 @@ rag_app/
 │   │   ├── services/
 │   │   │   ├── pdf_processor.py  # PDF extraction
 │   │   │   ├── embedding_service.py  # Embeddings
-│   │   │   ├── vector_store.py   # ChromaDB interface
-│   │   │   ├── hybrid_search.py  # BM25 + Semantic
+│   │   │   ├── vector_store.py   # Vertex AI interface
 │   │   │   └── chat_service.py   # LLM orchestration
 │   │   └── main.py               # FastAPI app
 │   ├── Dockerfile
@@ -256,7 +248,7 @@ rag_app/
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── SearchBar.js      # Search with mode selector
+│   │   │   ├── SearchBar.js      # Search interface
 │   │   │   ├── SearchResults.js  # Results with chunk selection
 │   │   │   ├── AdvancedSearch.js # Filter panel
 │   │   │   ├── ChatInterface.js  # AI chat UI
@@ -281,7 +273,6 @@ rag_app/
 │   └── requirements.txt
 ├── data/                         # Persistent data
 │   ├── uploads/                  # PDF files
-│   ├── chromadb/                 # Vector embeddings
 │   └── postgres/                 # Database data
 ├── docker-compose.yml
 ├── .env                          # Environment config (API keys)
@@ -301,7 +292,7 @@ rag_app/
 
 ### Search
 
-- `POST /api/v1/search/` - Hybrid search with filters
+- `POST /api/v1/search/` - Semantic search with filters
 
 Example:
 ```bash
@@ -309,9 +300,7 @@ curl -X POST http://localhost:8000/api/v1/search/ \
   -H "Content-Type: application/json" \
   -d '{
     "query": "What is artificial intelligence?",
-    "top_k": 5,
-    "search_mode": "hybrid",
-    "semantic_weight": 0.7
+    "top_k": 5
   }'
 ```
 
@@ -422,11 +411,10 @@ MIT License - feel free to use for any purpose
 
 - **pdfminer.six** - PDF text extraction
 - **sentence-transformers** - Embedding generation
-- **ChromaDB** - Vector database
+- **Vertex AI** - Vector database
 - **FastAPI** - Backend framework
 - **React** - Frontend framework
 - **Google Gemini** - LLM integration
-- **rank-bm25** - Keyword search
 
 ## 📞 Support
 

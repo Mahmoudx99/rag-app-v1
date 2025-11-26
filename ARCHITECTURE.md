@@ -79,7 +79,7 @@ The RAG Knowledge Base is a microservices-based application deployed on Google C
 - Responsive, modern UI
 - Tab-based navigation (Search/Chat/Documents)
 - Drag & drop file upload
-- Hybrid search interface
+- Semantic search interface
 - AI Chat with context viewer
 - Document management
 
@@ -143,10 +143,10 @@ LLM_SERVICE_URL=https://rag-llm-687800931209.me-central2.run.app
 - Metadata filtering by document ID
 - Delete by chunk IDs
 
-#### Hybrid Search
-- **Semantic search:** Vertex AI Vector Search
-- **Keyword search:** BM25 (disabled for Vertex AI)
-- RRF fusion when both available
+#### Semantic Search
+- **Vector search:** Vertex AI Vector Search
+- Similarity search with metadata filtering
+- Fast and scalable
 
 #### Chat Service
 - Context injection from selected chunks
@@ -360,14 +360,13 @@ CREATE TABLE chunks (
 ### Search Workflow
 
 ```
-1. User enters query + selects mode
+1. User enters query
    ↓
 2. Frontend → POST /api/v1/search/
    ↓
-3. HybridSearchService.hybrid_search()
-   ├─→ Semantic: Generate query embedding
-   │   └─→ Vertex AI find_neighbors()
-   └─→ (BM25 disabled for Vertex AI)
+3. Backend search route:
+   ├─→ Generate query embedding
+   └─→ Vertex AI find_neighbors()
    ↓
 4. Retrieve chunk content from SQLite
    ↓
@@ -540,23 +539,19 @@ gcloud logging read "resource.type=cloud_run_revision AND resource.labels.servic
    - Move from SQLite to PostgreSQL
    - Better concurrent access
 
-2. **BM25 Re-enablement**
-   - Store chunk content for keyword search
-   - True hybrid search capability
-
-3. **GPU Support**
+2. **GPU Support**
    - Faster embedding generation
    - Cloud Run GPU (when available in region)
 
-4. **Authentication**
+3. **Authentication**
    - Cloud Identity-Aware Proxy (IAP)
    - User accounts and permissions
 
-5. **Additional Models**
+4. **Additional Models**
    - Support multiple LLM endpoints
    - Model selection per query
 
-6. **Caching**
+5. **Caching**
    - Memorystore (Redis) for embeddings cache
    - Query result caching
 

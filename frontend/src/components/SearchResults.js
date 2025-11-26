@@ -44,19 +44,6 @@ function SearchResults({ results, onChunkSelect, selectedChunks = [], onChatWith
     return selectedChunks.some(chunk => chunk.chunk_id === chunkId);
   };
 
-  const getSearchModeLabel = (mode) => {
-    switch (mode) {
-      case 'hybrid':
-        return 'Hybrid Search';
-      case 'semantic':
-        return 'Semantic Search';
-      case 'keyword':
-        return 'Keyword Search';
-      default:
-        return mode;
-    }
-  };
-
   return (
     <div className="search-results">
       <div className="results-header">
@@ -65,11 +52,6 @@ function SearchResults({ results, onChunkSelect, selectedChunks = [], onChatWith
           {selectedChunks.length > 0 && (
             <span className="selected-count">
               {selectedChunks.length} selected for chat
-            </span>
-          )}
-          {results.search_mode && (
-            <span className={`search-mode-badge ${results.search_mode}`}>
-              {getSearchModeLabel(results.search_mode)}
             </span>
           )}
         </div>
@@ -97,16 +79,6 @@ function SearchResults({ results, onChunkSelect, selectedChunks = [], onChatWith
                 <span className="result-score">
                   Score: {(result.score * 100).toFixed(1)}%
                 </span>
-                {results.search_mode === 'hybrid' && (
-                  <span className="score-breakdown">
-                    <span className="semantic-score" title="Semantic similarity">
-                      S: {(result.semantic_score * 100).toFixed(0)}%
-                    </span>
-                    <span className="keyword-score" title="Keyword match">
-                      K: {result.keyword_score.toFixed(1)}
-                    </span>
-                  </span>
-                )}
               </div>
             </div>
 

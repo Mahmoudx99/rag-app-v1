@@ -75,12 +75,10 @@ export const documentsAPI = {
 
 // Search API
 export const searchAPI = {
-  search: async (query, topK = 5, documentId = null, searchMode = 'hybrid', semanticWeight = 0.7, advancedFilters = {}) => {
+  search: async (query, topK = 5, documentId = null, advancedFilters = {}) => {
     const requestBody = {
       query,
       top_k: topK,
-      search_mode: searchMode,
-      semantic_weight: semanticWeight,
     };
 
     // Handle document filtering

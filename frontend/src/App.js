@@ -81,7 +81,7 @@ function App() {
     }
   };
 
-  const handleSearch = async (query, topK, searchMode = 'hybrid', semanticWeight = 0.7, advancedFilters = {}) => {
+  const handleSearch = async (query, topK, advancedFilters = {}) => {
     if (!query.trim()) {
       toast.warning('Please enter a search query');
       return;
@@ -89,7 +89,7 @@ function App() {
 
     setLoading(true);
     try {
-      const results = await searchAPI.search(query, topK, null, searchMode, semanticWeight, advancedFilters);
+      const results = await searchAPI.search(query, topK, null, advancedFilters);
       setSearchResults(results);
 
       if (results.total_results === 0) {
