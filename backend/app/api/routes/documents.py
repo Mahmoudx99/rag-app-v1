@@ -222,10 +222,14 @@ async def _handle_file_deletion(file_name: str, file_size: int, db: Session):
         # Get vector store
         _, _, vec_store = get_services()
 
+        # Get chunk IDs from database before deleting
+        db_chunks = db.query(Chunk).filter(Chunk.document_id == doc.id).all()
+        chunk_ids_to_delete = [chunk.chunk_id for chunk in db_chunks]
+
         # Delete from vector store
-        if doc.chunk_ids:
-            print(f"[GCS-DELETE] Deleting {len(doc.chunk_ids)} chunks from Vertex AI")
-            vec_store.delete_by_ids(doc.chunk_ids)
+        if chunk_ids_to_delete:
+            print(f"[GCS-DELETE] Deleting {len(chunk_ids_to_delete)} chunks from Vertex AI")
+            vec_store.delete_by_ids(chunk_ids_to_delete)
 
         # Delete chunks from database
         chunks_deleted = db.query(Chunk).filter(Chunk.document_id == doc.id).delete()
