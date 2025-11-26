@@ -1,6 +1,7 @@
 """
 Search API routes - Semantic search across documents
 """
+import logging
 from typing import List, Optional
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -11,6 +12,8 @@ from ...services.vector_store import VectorStore
 from ...core.config import get_settings
 from ...core.database import SessionLocal
 from ...models.document import Chunk
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 settings = get_settings()
@@ -145,8 +148,14 @@ async def search(request: SearchRequest):
             where=where_filter
         )
 
-        # Convert distances to similarity scores (1 - distance for cosine)
-        scores = [1 - d for d in search_results["distances"]]
+        # Log raw distances for debugging
+        if search_results["distances"]:
+            logger.info(f"Raw Vertex AI distances: {search_results['distances'][:3]}")
+
+        # Vertex AI with cosine/dot product returns similarity scores directly
+        # Higher values = more similar (typically 0 to 1 range)
+        # No conversion needed - use raw values as similarity scores
+        scores = search_results["distances"]
 
         # Retrieve chunk content from database
         chunk_ids = search_results["ids"]
