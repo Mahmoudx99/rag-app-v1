@@ -6,7 +6,6 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
 from ...services.chat_service import ChatService
-from ...services.hybrid_search import HybridSearchService
 from ...services.embedding_service import EmbeddingService
 from ...services.vector_store import VectorStore
 from ...core.config import get_settings
@@ -16,18 +15,21 @@ settings = get_settings()
 
 # Services will be initialized on first use
 chat_service = None
-hybrid_search_service = None
+embedding_service = None
+vector_store = None
 
 
 def get_chat_service():
     """Get or create chat service instance"""
-    global chat_service, hybrid_search_service
+    global chat_service, embedding_service, vector_store
 
-    if hybrid_search_service is None:
+    if embedding_service is None:
         embedding_service = EmbeddingService(
             model_name=settings.EMBEDDING_MODEL,
             batch_size=settings.BATCH_SIZE
         )
+
+    if vector_store is None:
         vector_store = VectorStore(
             project_id=settings.GCP_PROJECT_ID,
             region=settings.GCP_REGION,
@@ -35,15 +37,12 @@ def get_chat_service():
             deployed_index_id=settings.VERTEX_AI_DEPLOYED_INDEX_ID,
             index_id=settings.VERTEX_AI_INDEX_ID
         )
-        hybrid_search_service = HybridSearchService(
-            vector_store=vector_store,
-            embedding_service=embedding_service
-        )
 
     if chat_service is None:
         chat_service = ChatService(
             llm_service_url=settings.LLM_SERVICE_URL,
-            hybrid_search_service=hybrid_search_service
+            embedding_service=embedding_service,
+            vector_store=vector_store
         )
 
     return chat_service

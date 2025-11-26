@@ -6,6 +6,9 @@ import httpx
 from typing import List, Dict, Any, Optional
 import uuid
 
+from ..core.database import SessionLocal
+from ..models.document import Chunk
+
 logger = logging.getLogger(__name__)
 
 
@@ -15,16 +18,18 @@ class ChatService:
     Manages conversation history and context injection.
     """
 
-    def __init__(self, llm_service_url: str, hybrid_search_service=None):
+    def __init__(self, llm_service_url: str, embedding_service=None, vector_store=None):
         """
         Initialize chat service
 
         Args:
             llm_service_url: URL of the LLM microservice
-            hybrid_search_service: Optional HybridSearchService for tool-based search
+            embedding_service: Optional EmbeddingService for generating query embeddings
+            vector_store: Optional VectorStore for semantic search
         """
         self.llm_service_url = llm_service_url.rstrip('/')
-        self.search_service = hybrid_search_service
+        self.embedding_service = embedding_service
+        self.vector_store = vector_store
         self.conversations: Dict[str, List[Dict[str, str]]] = {}
 
         logger.info(f"Chat service initialized with LLM service at: {self.llm_service_url}")
@@ -96,7 +101,7 @@ class ChatService:
                 sources = context_chunks
 
             # If use_search_tool is enabled, use tool calling
-            if use_search_tool and self.search_service:
+            if use_search_tool and self.embedding_service and self.vector_store:
                 response_data = await self._chat_with_tools(
                     message=message,
                     history=history,
@@ -170,19 +175,53 @@ class ChatService:
         # This ensures every query benefits from relevant context
         logger.info(f"Performing automatic search for query: {message[:100]}...")
 
-        search_results = self.search_service.hybrid_search(
-            query=message,
-            n_results=5  # Default to 5 results
+        # Perform semantic search using vector store
+        n_results = 5
+
+        # Generate query embedding
+        query_embedding = self.embedding_service.generate_embedding(message)
+
+        # Search vector store
+        search_results = self.vector_store.search(
+            query_embedding=query_embedding,
+            n_results=n_results,
+            where=None
         )
+
+        # Retrieve chunk content from database
+        chunk_ids = search_results["ids"]
+        documents = []
+        metadatas = []
+
+        if chunk_ids:
+            db = SessionLocal()
+            try:
+                # Get chunks from database by their IDs
+                db_chunks = db.query(Chunk).filter(Chunk.chunk_id.in_(chunk_ids)).all()
+
+                # Create a map for quick lookup
+                chunk_map = {c.chunk_id: c for c in db_chunks}
+
+                # Maintain order from search results
+                for chunk_id in chunk_ids:
+                    if chunk_id in chunk_map:
+                        chunk = chunk_map[chunk_id]
+                        documents.append(chunk.content)
+                        metadatas.append(chunk.chunk_metadata or {})
+                    else:
+                        # Chunk not found in DB - skip it
+                        logger.warning(f"Chunk {chunk_id} not found in database")
+            finally:
+                db.close()
 
         # Format search results as context
         search_context = context or []  # Start with any provided context
         sources = []
 
-        for i in range(len(search_results["ids"])):
+        for i in range(len(documents)):
             chunk = {
-                "content": search_results["documents"][i],
-                "metadata": search_results["metadatas"][i]
+                "content": documents[i],
+                "metadata": metadatas[i]
             }
             search_context.append(chunk)
             sources.append(chunk)
