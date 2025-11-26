@@ -200,8 +200,12 @@ async def _handle_file_deletion(file_name: str, file_size: int, db: Session):
     Returns:
         Status response
     """
+    print(f"[GCS-DELETE] ========== DELETION EVENT START ==========")
+    print(f"[GCS-DELETE] File: {file_name}")
+    print(f"[GCS-DELETE] Size: {file_size}")
+
     try:
-        print(f"[GCS-DELETE] Looking for document: {file_name} (size: {file_size})")
+        print(f"[GCS-DELETE] Step 1: Querying database for document...")
 
         # Find document by filename and size
         doc = db.query(Document).filter(
@@ -210,7 +214,8 @@ async def _handle_file_deletion(file_name: str, file_size: int, db: Session):
         ).first()
 
         if not doc:
-            print(f"[GCS-DELETE] ⚠️ Document not found in database: {file_name}")
+            print(f"[GCS-DELETE] ⚠️ Document not found in database")
+            print(f"[GCS-DELETE] Searched for: filename={file_name}, size={file_size}")
             return {
                 "status": "ignored",
                 "reason": "Document not found in database",
@@ -218,44 +223,84 @@ async def _handle_file_deletion(file_name: str, file_size: int, db: Session):
             }
 
         print(f"[GCS-DELETE] ✓ Found document ID: {doc.id}")
+        print(f"[GCS-DELETE] Document status: {doc.status}")
+        print(f"[GCS-DELETE] Document chunks: {doc.num_chunks}")
 
+        print(f"[GCS-DELETE] Step 2: Getting services...")
         # Get vector store
-        _, _, vec_store = get_services()
+        try:
+            _, _, vec_store = get_services()
+            print(f"[GCS-DELETE] ✓ Services initialized")
+        except Exception as e:
+            print(f"[GCS-DELETE] ❌ Failed to get services: {e}")
+            raise
 
+        print(f"[GCS-DELETE] Step 3: Getting chunk IDs from database...")
         # Get chunk IDs from database before deleting
-        db_chunks = db.query(Chunk).filter(Chunk.document_id == doc.id).all()
-        chunk_ids_to_delete = [chunk.chunk_id for chunk in db_chunks]
+        try:
+            db_chunks = db.query(Chunk).filter(Chunk.document_id == doc.id).all()
+            chunk_ids_to_delete = [chunk.chunk_id for chunk in db_chunks]
+            print(f"[GCS-DELETE] ✓ Found {len(chunk_ids_to_delete)} chunks in database")
+        except Exception as e:
+            print(f"[GCS-DELETE] ❌ Failed to query chunks: {e}")
+            raise
 
+        print(f"[GCS-DELETE] Step 4: Deleting from Vertex AI...")
         # Delete from vector store
         if chunk_ids_to_delete:
-            print(f"[GCS-DELETE] Deleting {len(chunk_ids_to_delete)} chunks from Vertex AI")
-            vec_store.delete_by_ids(chunk_ids_to_delete)
+            try:
+                print(f"[GCS-DELETE] Deleting {len(chunk_ids_to_delete)} chunks from Vertex AI")
+                vec_store.delete_by_ids(chunk_ids_to_delete)
+                print(f"[GCS-DELETE] ✓ Deleted from Vertex AI")
+            except Exception as e:
+                print(f"[GCS-DELETE] ❌ Failed to delete from Vertex AI: {e}")
+                # Continue anyway to clean up database
+        else:
+            print(f"[GCS-DELETE] No chunks to delete from Vertex AI")
 
+        print(f"[GCS-DELETE] Step 5: Deleting chunks from database...")
         # Delete chunks from database
-        chunks_deleted = db.query(Chunk).filter(Chunk.document_id == doc.id).delete()
-        print(f"[GCS-DELETE] Deleted {chunks_deleted} chunks from database")
+        try:
+            chunks_deleted = db.query(Chunk).filter(Chunk.document_id == doc.id).delete()
+            print(f"[GCS-DELETE] ✓ Deleted {chunks_deleted} chunks from database")
+        except Exception as e:
+            print(f"[GCS-DELETE] ❌ Failed to delete chunks from database: {e}")
+            raise
 
+        print(f"[GCS-DELETE] Step 6: Recording deletion in activity...")
         # Track deletion in watcher activity
-        deletion_record = {
-            "event_id": f"gcs_delete_{doc.id}_{datetime.utcnow().timestamp()}",
-            "filename": doc.original_filename,
-            "file_size": doc.file_size,
-            "status": "deleted",
-            "started_at": datetime.utcnow(),
-            "completed_at": datetime.utcnow(),
-            "document_id": doc.id,
-            "num_chunks": doc.num_chunks or 0,
-            "error_message": None
-        }
-        _watcher_activity.insert(0, deletion_record)
-        if len(_watcher_activity) > _MAX_ACTIVITY_HISTORY:
-            _watcher_activity.pop()
-        _save_activity_history()
+        try:
+            deletion_record = {
+                "event_id": f"gcs_delete_{doc.id}_{datetime.utcnow().timestamp()}",
+                "filename": doc.original_filename,
+                "file_size": doc.file_size,
+                "status": "deleted",
+                "started_at": datetime.utcnow(),
+                "completed_at": datetime.utcnow(),
+                "document_id": doc.id,
+                "num_chunks": doc.num_chunks or 0,
+                "error_message": None
+            }
+            _watcher_activity.insert(0, deletion_record)
+            if len(_watcher_activity) > _MAX_ACTIVITY_HISTORY:
+                _watcher_activity.pop()
+            _save_activity_history()
+            print(f"[GCS-DELETE] ✓ Activity recorded")
+        except Exception as e:
+            print(f"[GCS-DELETE] ⚠️ Failed to record activity: {e}")
+            # Continue anyway
 
+        print(f"[GCS-DELETE] Step 7: Deleting document from database...")
         # Delete document from database
-        db.delete(doc)
-        db.commit()
+        try:
+            db.delete(doc)
+            db.commit()
+            print(f"[GCS-DELETE] ✓ Document deleted from database")
+        except Exception as e:
+            print(f"[GCS-DELETE] ❌ Failed to delete document from database: {e}")
+            raise
 
+        print(f"[GCS-DELETE] ========== DELETION COMPLETE ==========")
         print(f"[GCS-DELETE] ✓ Successfully deleted document: {file_name}")
 
         return {
@@ -266,9 +311,13 @@ async def _handle_file_deletion(file_name: str, file_size: int, db: Session):
         }
 
     except Exception as e:
-        print(f"[GCS-DELETE] ❌ Error deleting document: {str(e)}")
+        print(f"[GCS-DELETE] ========== DELETION FAILED ==========")
+        print(f"[GCS-DELETE] ❌ Error: {str(e)}")
+        print(f"[GCS-DELETE] ❌ Error type: {type(e).__name__}")
         import traceback
-        print(f"[GCS-DELETE] Traceback: {traceback.format_exc()}")
+        print(f"[GCS-DELETE] ❌ Traceback:")
+        print(traceback.format_exc())
+        print(f"[GCS-DELETE] ========================================")
         return {
             "status": "error",
             "filename": file_name,
@@ -986,7 +1035,17 @@ async def handle_gcs_cloudevent(
         # Handle deletion event
         if event_type == 'deleted':
             print(f"[GCS-EVENT] 🗑️ Processing DELETION event for: {file_name}")
-            return await _handle_file_deletion(file_name, file_size, db)
+            print(f"[GCS-EVENT] Calling deletion handler...")
+            try:
+                result = await _handle_file_deletion(file_name, file_size, db)
+                print(f"[GCS-EVENT] ✓ Deletion handler returned: {result}")
+                return result
+            except Exception as e:
+                print(f"[GCS-EVENT] ❌ Deletion handler failed with exception: {e}")
+                import traceback
+                print(f"[GCS-EVENT] ❌ Traceback:")
+                print(traceback.format_exc())
+                raise
 
         # Handle creation/finalized event (existing logic)
 
