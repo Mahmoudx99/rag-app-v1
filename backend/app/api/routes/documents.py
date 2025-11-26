@@ -251,9 +251,8 @@ async def upload_document(
             detail=f"File too large. Maximum size is {settings.MAX_UPLOAD_SIZE / 1024 / 1024}MB"
         )
 
-    # Generate unique filename to avoid conflicts
-    file_id = str(uuid.uuid4())
-    filename = f"{file_id}_{file.filename}"
+    # Use original filename
+    filename = file.filename
 
     # Save to watch bucket (which triggers Eventarc)
     watch_bucket_path = "/watch"
