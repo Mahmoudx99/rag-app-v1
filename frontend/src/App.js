@@ -65,21 +65,6 @@ function App() {
     }
   };
 
-  const handleDelete = async (documentId) => {
-    if (!window.confirm('Are you sure you want to delete this document?')) {
-      return;
-    }
-
-    try {
-      await documentsAPI.delete(documentId);
-      toast.success('Document deleted successfully');
-      await loadDocuments();
-      await loadStats();
-    } catch (error) {
-      toast.error('Failed to delete document');
-      console.error(error);
-    }
-  };
 
   const handleSearch = async (query, topK, advancedFilters = {}) => {
     if (!query.trim()) {
@@ -224,7 +209,7 @@ function App() {
           {activeTab === 'documents' && (
             <>
               <UploadArea onUpload={handleUpload} loading={loading} />
-              <DocumentList documents={documents} onDelete={handleDelete} />
+              <DocumentList documents={documents} />
             </>
           )}
         </div>

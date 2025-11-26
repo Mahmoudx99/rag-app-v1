@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import PDFViewer from './PDFViewer';
 import './DocumentList.css';
 
-function DocumentList({ documents, onDelete }) {
+function DocumentList({ documents }) {
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [selectedDocumentId, setSelectedDocumentId] = useState(null);
 
@@ -94,9 +94,9 @@ function DocumentList({ documents, onDelete }) {
               >
                 📄 View PDF
               </button>
-              <button className="delete-button" onClick={() => onDelete(doc.id)}>
-                🗑️ Delete
-              </button>
+              <div className="delete-info">
+                💡 Delete files from watch bucket to remove them
+              </div>
             </div>
           </div>
         ))}

@@ -161,11 +161,6 @@ class WatcherActivityResponse(BaseModel):
     is_active: bool
 
 
-class ReprocessRequest(BaseModel):
-    """Request to reprocess specific deleted files."""
-    event_ids: list[str]  # List of event_ids to reprocess
-
-
 # In-memory storage for watcher activity (last 50 events)
 _watcher_activity: list[dict] = []
 _MAX_ACTIVITY_HISTORY = 50
@@ -190,6 +185,91 @@ def _load_activity_history():
     except Exception as e:
         print(f"Warning: Could not load activity history: {e}")
         _watcher_activity = []
+
+
+async def _handle_file_deletion(file_name: str, file_size: int, db: Session):
+    """
+    Handle file deletion event from GCS watch bucket.
+    Deletes the document from vector store and database.
+
+    Args:
+        file_name: Name of the deleted file
+        file_size: Size of the deleted file
+        db: Database session
+
+    Returns:
+        Status response
+    """
+    try:
+        print(f"[GCS-DELETE] Looking for document: {file_name} (size: {file_size})")
+
+        # Find document by filename and size
+        doc = db.query(Document).filter(
+            Document.original_filename == file_name,
+            Document.file_size == file_size
+        ).first()
+
+        if not doc:
+            print(f"[GCS-DELETE] ⚠️ Document not found in database: {file_name}")
+            return {
+                "status": "ignored",
+                "reason": "Document not found in database",
+                "filename": file_name
+            }
+
+        print(f"[GCS-DELETE] ✓ Found document ID: {doc.id}")
+
+        # Get vector store
+        _, _, vec_store = get_services()
+
+        # Delete from vector store
+        if doc.chunk_ids:
+            print(f"[GCS-DELETE] Deleting {len(doc.chunk_ids)} chunks from Vertex AI")
+            vec_store.delete_by_ids(doc.chunk_ids)
+
+        # Delete chunks from database
+        chunks_deleted = db.query(Chunk).filter(Chunk.document_id == doc.id).delete()
+        print(f"[GCS-DELETE] Deleted {chunks_deleted} chunks from database")
+
+        # Track deletion in watcher activity
+        deletion_record = {
+            "event_id": f"gcs_delete_{doc.id}_{datetime.utcnow().timestamp()}",
+            "filename": doc.original_filename,
+            "file_size": doc.file_size,
+            "status": "deleted",
+            "started_at": datetime.utcnow(),
+            "completed_at": datetime.utcnow(),
+            "document_id": doc.id,
+            "num_chunks": doc.num_chunks or 0,
+            "error_message": None
+        }
+        _watcher_activity.insert(0, deletion_record)
+        if len(_watcher_activity) > _MAX_ACTIVITY_HISTORY:
+            _watcher_activity.pop()
+        _save_activity_history()
+
+        # Delete document from database
+        db.delete(doc)
+        db.commit()
+
+        print(f"[GCS-DELETE] ✓ Successfully deleted document: {file_name}")
+
+        return {
+            "status": "deleted",
+            "filename": file_name,
+            "document_id": doc.id,
+            "chunks_deleted": doc.num_chunks or 0
+        }
+
+    except Exception as e:
+        print(f"[GCS-DELETE] ❌ Error deleting document: {str(e)}")
+        import traceback
+        print(f"[GCS-DELETE] Traceback: {traceback.format_exc()}")
+        return {
+            "status": "error",
+            "filename": file_name,
+            "error": str(e)
+        }
 
 
 def _save_activity_history():
@@ -827,11 +907,9 @@ async def handle_gcs_cloudevent(
     Handle GCS events from Eventarc triggered by Cloud Storage.
 
     This endpoint receives Cloud Storage events via Eventarc when
-    files are uploaded to the GCS bucket. Supports both:
-    - GCS Notification format (direct object metadata)
-    - CloudEvents format (with type and data wrapper)
-
-    Event type: google.cloud.storage.object.v1.finalized
+    files are uploaded or deleted from the GCS bucket. Supports:
+    - google.cloud.storage.object.v1.finalized (file upload)
+    - google.cloud.storage.object.v1.deleted (file deletion)
     """
     try:
         # Parse CloudEvents format
@@ -845,22 +923,32 @@ async def handle_gcs_cloudevent(
         # GCS notification format has 'kind', 'bucket', 'name' at root level
         # CloudEvents format has 'type', 'data' with nested 'bucket', 'name'
 
+        event_type = None
         if 'kind' in event and event.get('kind') == 'storage#object':
             # GCS Notification format (direct object metadata)
             print(f"[GCS-EVENT] Format: GCS Notification (direct)")
             bucket_name = event.get('bucket', '')
             object_name = event.get('name', '')
             file_size = int(event.get('size', 0))
+            # Determine event type from action or assume finalized
+            event_type = 'finalized'
         elif 'type' in event:
             # CloudEvents format
             print(f"[GCS-EVENT] Format: CloudEvents")
-            event_type = event.get('type', '')
-            if event_type != 'google.cloud.storage.object.v1.finalized':
-                print(f"[GCS-EVENT] ❌ Ignoring unsupported event type: {event_type}")
+            event_type_full = event.get('type', '')
+
+            # Extract event type (finalized or deleted)
+            if event_type_full == 'google.cloud.storage.object.v1.finalized':
+                event_type = 'finalized'
+            elif event_type_full == 'google.cloud.storage.object.v1.deleted':
+                event_type = 'deleted'
+            else:
+                print(f"[GCS-EVENT] ❌ Ignoring unsupported event type: {event_type_full}")
                 return {
                     "status": "ignored",
-                    "reason": f"Unsupported event type: {event_type}"
+                    "reason": f"Unsupported event type: {event_type_full}"
                 }
+
             data = event.get('data', {})
             bucket_name = data.get('bucket', '')
             object_name = data.get('name', '')
@@ -875,6 +963,7 @@ async def handle_gcs_cloudevent(
         print(f"[GCS-EVENT] Bucket: {bucket_name}")
         print(f"[GCS-EVENT] Object: {object_name}")
         print(f"[GCS-EVENT] Size: {file_size}")
+        print(f"[GCS-EVENT] Event Type: {event_type}")
 
         # Validate bucket (should be gcs-rag-watch-bucket)
         if bucket_name != 'gcs-rag-watch-bucket':
@@ -889,6 +978,13 @@ async def handle_gcs_cloudevent(
         # Extract just the filename
         file_name = os.path.basename(object_name)
         print(f"[GCS-EVENT] Extracted filename: {file_name}")
+
+        # Handle deletion event
+        if event_type == 'deleted':
+            print(f"[GCS-EVENT] 🗑️ Processing DELETION event for: {file_name}")
+            return await _handle_file_deletion(file_name, file_size, db)
+
+        # Handle creation/finalized event (existing logic)
 
         # Build the local file path (watch bucket is mounted at /watch)
         file_path = f"/watch/{object_name}"
@@ -1060,107 +1156,6 @@ def clear_watcher_activity():
     _watcher_activity = []
     _save_activity_history()
     return {"message": "Watcher activity cleared"}
-
-
-@router.post("/watcher/reprocess-deleted")
-def reprocess_deleted_files(
-    background_tasks: BackgroundTasks,
-    request: ReprocessRequest = None
-):
-    """
-    Reprocess files that were previously deleted.
-    If event_ids provided, only reprocess those specific files.
-    Marks reprocessed files as 'reprocessed' status (not deleted anymore).
-    """
-    import json
-    watch_folder = Path("/data/watch")
-
-    try:
-        # Get the specific event_ids to reprocess (if provided)
-        selected_event_ids = set(request.event_ids) if request and request.event_ids else None
-
-        # Find deleted activity records to reprocess
-        files_to_reprocess = []
-        for activity in _watcher_activity:
-            if activity.get('status') == 'deleted':
-                # If specific IDs provided, check if this one is selected
-                if selected_event_ids is None or activity.get('event_id') in selected_event_ids:
-                    files_to_reprocess.append(activity)
-
-        if not files_to_reprocess:
-            return {"message": "No deleted files to reprocess", "reactivated": 0}
-
-        # Process each file
-        reprocessed = 0
-        for deleted_activity in files_to_reprocess:
-            file_name = deleted_activity['filename']
-            expected_size = deleted_activity['file_size']
-
-            # Check if file exists in watch folder
-            watch_file_path = watch_folder / file_name
-            if watch_file_path.exists() and watch_file_path.is_file():
-                actual_size = watch_file_path.stat().st_size
-
-                # Verify size matches (same file)
-                if actual_size == expected_size:
-                    # Mark the old deleted record as 'reprocessed'
-                    deleted_activity['status'] = 'reprocessed'
-                    deleted_activity['completed_at'] = datetime.utcnow()
-
-                    # Create new activity record for processing
-                    new_activity_record = {
-                        "event_id": f"reprocess_{uuid.uuid4()}",
-                        "filename": file_name,
-                        "file_size": actual_size,
-                        "status": "processing",
-                        "started_at": datetime.utcnow(),
-                        "completed_at": None,
-                        "document_id": None,
-                        "num_chunks": 0,
-                        "error_message": None,
-                        # Enhanced progress tracking fields
-                        "chunks_processed": 0,
-                        "chunks_estimated": None,
-                        "progress_percent": None,
-                        "elapsed_seconds": 0.0,
-                        "processing_rate": None,
-                        "estimated_remaining_seconds": None
-                    }
-                    _watcher_activity.insert(0, new_activity_record)
-                    if len(_watcher_activity) > _MAX_ACTIVITY_HISTORY:
-                        _watcher_activity.pop()
-
-                    # Schedule processing in background
-                    background_tasks.add_task(
-                        _process_file_background,
-                        new_activity_record["event_id"],
-                        file_name,
-                        str(watch_file_path),
-                        actual_size,
-                        new_activity_record
-                    )
-                    reprocessed += 1
-                else:
-                    # File size changed, mark as reprocessed but note the issue
-                    deleted_activity['status'] = 'reprocessed'
-                    deleted_activity['error_message'] = 'File size changed, skipped'
-            else:
-                # File not found in watch folder
-                deleted_activity['status'] = 'reprocessed'
-                deleted_activity['error_message'] = 'File not found in watch folder'
-
-        _save_activity_history()
-
-        return {
-            "message": f"Reprocessing {reprocessed} files",
-            "reactivated": reprocessed
-        }
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error reprocessing deleted files: {str(e)}"
-        )
 
 
 # Import func for SQL functions

@@ -5,7 +5,6 @@ const WatcherActivity = ({ onNewDocument }) => {
   const [activity, setActivity] = useState(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedForReprocess, setSelectedForReprocess] = useState(new Set());
   const lastProcessedCountRef = useRef(0);
   const onNewDocumentRef = useRef(onNewDocument);
 
@@ -96,11 +95,6 @@ const WatcherActivity = ({ onNewDocument }) => {
         background: '#fef2f2',
         color: '#dc2626',
         border: '1px solid #f87171'
-      },
-      reprocessed: {
-        background: '#ede9fe',
-        color: '#6d28d9',
-        border: '1px solid #a78bfa'
       }
     };
 
@@ -133,12 +127,6 @@ const WatcherActivity = ({ onNewDocument }) => {
             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
           </svg>
         )}
-        {status === 'reprocessed' && (
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <polyline points="23 4 23 10 17 10" />
-            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-          </svg>
-        )}
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </span>
     );
@@ -162,46 +150,6 @@ const WatcherActivity = ({ onNewDocument }) => {
     }
   };
 
-  const handleReprocessDeleted = async () => {
-    const selectedIds = Array.from(selectedForReprocess);
-    const message = selectedIds.length > 0
-      ? `Reprocess ${selectedIds.length} selected deleted file(s)?`
-      : 'Reprocess all deleted files?';
-
-    if (!window.confirm(message)) return;
-    setIsLoading(true);
-    try {
-      const result = await documentsAPI.reprocessDeletedFiles(selectedIds.length > 0 ? selectedIds : null);
-      alert(result.message);
-      setSelectedForReprocess(new Set());
-    } catch (error) {
-      console.error('Error reprocessing deleted files:', error);
-      alert('Failed to reprocess deleted files');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const toggleFileSelection = (eventId) => {
-    setSelectedForReprocess(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(eventId)) {
-        newSet.delete(eventId);
-      } else {
-        newSet.add(eventId);
-      }
-      return newSet;
-    });
-  };
-
-  const toggleSelectAllDeleted = () => {
-    const deletedItems = activity.recent_activities.filter(a => a.status === 'deleted');
-    if (selectedForReprocess.size === deletedItems.length) {
-      setSelectedForReprocess(new Set());
-    } else {
-      setSelectedForReprocess(new Set(deletedItems.map(a => a.event_id)));
-    }
-  };
 
   if (!activity) {
     return null;
@@ -209,10 +157,8 @@ const WatcherActivity = ({ onNewDocument }) => {
 
   const hasActivity = activity.recent_activities.length > 0;
   const processingCount = activity.recent_activities.filter(a => a.status === 'processing').length;
-  const deletedCount = activity.recent_activities.filter(a => a.status === 'deleted').length;
   const completedCount = activity.recent_activities.filter(a => a.status === 'completed').length;
   const totalInBatch = processingCount + completedCount;
-  const processingItems = activity.recent_activities.filter(a => a.status === 'processing');
 
   return (
     <div style={{
@@ -402,11 +348,9 @@ const WatcherActivity = ({ onNewDocument }) => {
                   style={{
                     padding: '12px',
                     borderRadius: '8px',
-                    background: item.status === 'processing' ? '#fffbeb' :
-                               item.status === 'reprocessed' ? '#f5f3ff' : '#f8fafc',
+                    background: item.status === 'processing' ? '#fffbeb' : '#f8fafc',
                     marginBottom: '8px',
-                    border: item.status === 'processing' ? '1px solid #fcd34d' :
-                           item.status === 'reprocessed' ? '1px solid #c4b5fd' : '1px solid #e2e8f0'
+                    border: item.status === 'processing' ? '1px solid #fcd34d' : '1px solid #e2e8f0'
                   }}
                 >
                   <div style={{
@@ -416,19 +360,6 @@ const WatcherActivity = ({ onNewDocument }) => {
                     marginBottom: '8px'
                   }}>
                     <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                      {item.status === 'deleted' && (
-                        <input
-                          type="checkbox"
-                          checked={selectedForReprocess.has(item.event_id)}
-                          onChange={() => toggleFileSelection(item.event_id)}
-                          style={{
-                            marginTop: '3px',
-                            cursor: 'pointer',
-                            width: '16px',
-                            height: '16px'
-                          }}
-                        />
-                      )}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{
                           fontWeight: '500',
@@ -524,11 +455,6 @@ const WatcherActivity = ({ onNewDocument }) => {
                         Removed {item.num_chunks} chunks
                       </span>
                     )}
-                    {item.status === 'reprocessed' && (
-                      <span style={{ color: '#6d28d9' }}>
-                        Queued for reprocessing
-                      </span>
-                    )}
                     {item.status === 'failed' && item.error_message && (
                       <span style={{ color: '#dc2626' }} title={item.error_message}>
                         Error
@@ -546,28 +472,6 @@ const WatcherActivity = ({ onNewDocument }) => {
             borderTop: '1px solid #e2e8f0',
             background: '#f8fafc'
           }}>
-            {deletedCount > 0 && (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                marginBottom: '8px',
-                fontSize: '12px',
-                color: '#475569'
-              }}>
-                <input
-                  type="checkbox"
-                  checked={selectedForReprocess.size === deletedCount && deletedCount > 0}
-                  onChange={toggleSelectAllDeleted}
-                  style={{ cursor: 'pointer' }}
-                />
-                <span>
-                  {selectedForReprocess.size > 0
-                    ? `${selectedForReprocess.size} of ${deletedCount} selected`
-                    : `Select all deleted (${deletedCount})`}
-                </span>
-              </div>
-            )}
             <div style={{
               display: 'flex',
               gap: '8px',
@@ -577,7 +481,7 @@ const WatcherActivity = ({ onNewDocument }) => {
                 onClick={handleClearHistory}
                 disabled={isLoading || !hasActivity}
                 style={{
-                  flex: 1,
+                  width: '100%',
                   padding: '6px 12px',
                   fontSize: '11px',
                   fontWeight: '500',
@@ -590,26 +494,6 @@ const WatcherActivity = ({ onNewDocument }) => {
                 }}
               >
                 Clear History
-              </button>
-              <button
-                onClick={handleReprocessDeleted}
-                disabled={isLoading || deletedCount === 0}
-                style={{
-                  flex: 1,
-                  padding: '6px 12px',
-                  fontSize: '11px',
-                  fontWeight: '500',
-                  background: deletedCount > 0 ? '#fef2f2' : '#f1f5f9',
-                  border: deletedCount > 0 ? '1px solid #fca5a5' : '1px solid #cbd5e1',
-                  borderRadius: '6px',
-                  cursor: isLoading || deletedCount === 0 ? 'not-allowed' : 'pointer',
-                  opacity: isLoading || deletedCount === 0 ? 0.5 : 1,
-                  color: deletedCount > 0 ? '#dc2626' : '#475569'
-                }}
-              >
-                {selectedForReprocess.size > 0
-                  ? `Reprocess Selected (${selectedForReprocess.size})`
-                  : `Reprocess Deleted (${deletedCount})`}
               </button>
             </div>
             <div style={{

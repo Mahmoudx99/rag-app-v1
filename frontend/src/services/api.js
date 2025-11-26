@@ -63,14 +63,6 @@ export const documentsAPI = {
     const response = await api.delete('/documents/watcher/activity');
     return response.data;
   },
-
-  // Reprocess deleted files (remove deleted status from tracker)
-  reprocessDeletedFiles: async (eventIds = null) => {
-    const response = await api.post('/documents/watcher/reprocess-deleted', {
-      event_ids: eventIds || []
-    });
-    return response.data;
-  },
 };
 
 // Search API
